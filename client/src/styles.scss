@@ -1,0 +1,14 @@
+body {
+    margin: 0;
+    padding: 0;
+}
+
+.leaflet-container {
+    width: 100%;
+    height: calc(100vh - 64px);
+}
+
+.MuiSlider-markLabel {
+    color: white !important;
+    transform: scale(1.2);
+}

@@ -3,8 +3,10 @@ import geopandas as gpd
 from flask_cors import CORS
 import os
 import tempfile
+from flask import send_file
 import zipfile
 import json
+from simplification.douglas import simplify_geometries
 
 app = Flask(__name__)
 cors = CORS(app, origins="*")
@@ -50,17 +52,52 @@ def simplify_shape():
         data = request.get_json()
         geojson = data['geojson']
         tolerances = data['tolerances']
+        algorithm = data["algorithm"]
 
         gdf = gpd.GeoDataFrame.from_features(geojson['features'])
 
         simplified_geojsons = {}
 
         for tolerance in tolerances:
-            simplified_gdf = gdf.simplify(tolerance=tolerance)
+            simplified_gdf = gdf
+            
+            if algorithm == "Douglas-Peucker":
+                simplified_gdf = gdf.simplify(tolerance=tolerance)
+            elif algorithm == "Visvalingem":
+                pass
+            
+            # simplified_gdf = simplify_geometries(gdf, tolerance)
+            
             geojson_data = simplified_gdf.to_json()
             simplified_geojsons[tolerance] = json.loads(geojson_data)
 
         return jsonify(simplified_geojsons)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    
+    
+    
+@app.route('/api/download_shapefile', methods=['POST'])
+def download_shapefile():
+    try:
+        data = request.get_json()  # Receive GeoJSON data from frontend
+        geojson = data['geojson']
+
+        # Load GeoJSON data into GeoDataFrame
+        gdf = gpd.GeoDataFrame.from_features(geojson['features'])
+
+        # Define the shapefile path
+        shapefile_path = "current_map_shapefile.shp"
+        gdf.to_file(shapefile_path, driver="ESRI Shapefile")
+
+        # Send the single .shp file as a response
+        return send_file(
+            shapefile_path,
+            as_attachment=True,
+            download_name="map_shapefile.shp",
+            mimetype="application/octet-stream"
+        )
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400

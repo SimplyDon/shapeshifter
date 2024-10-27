@@ -26,6 +26,9 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import PolylineIcon from "@mui/icons-material/Polyline";
+import RadioGroup from "@mui/material/RadioGroup";
+import Radio from "@mui/material/Radio";
+import FormControlLabel from "@mui/material/FormControlLabel";
 
 const theme = createTheme({
   palette: {
@@ -39,7 +42,19 @@ interface HeaderProps {
   onResetData: () => void;
   onToggleWorldMap: () => void;
   onSimplify: (tolerance: number) => void;
-  onToggleSimplification: (availableTolerances: number[]) => void;
+  onToggleSimplification: (
+    availableTolerances: number[],
+    algorithm: String
+  ) => void;
+  data: () => void;
+}
+
+export interface ConfirmationDialogRawProps {
+  id: string;
+  keepMounted: boolean;
+  value: string;
+  open: boolean;
+  onClose: (value?: string) => void;
 }
 
 const VisuallyHiddenInput = styled("input")({
@@ -54,45 +69,145 @@ const VisuallyHiddenInput = styled("input")({
   width: 1,
 });
 
+const options = [
+  { name: "Douglas-Peucker", disabled: false },
+  { name: "Visvaligam-Whyatt", disabled: true },
+  { name: "Reumann-Witkam", disabled: true },
+  { name: "Lang", disabled: true },
+  { name: "Opheim", disabled: true },
+];
+
+const availableTolerances = [
+  {
+    value: 0,
+    label: "0",
+  },
+  {
+    value: 0.03,
+    label: "0.03",
+  },
+  {
+    value: 0.06,
+    label: "0.06",
+  },
+  {
+    value: 0.09,
+    label: "0.09",
+  },
+  {
+    value: 0.12,
+    label: "0.12",
+  },
+  {
+    value: 0.15,
+    label: "0.15",
+  },
+  {
+    value: 0.18,
+    label: "0.18",
+  },
+  {
+    value: 0.21,
+    label: "0.21",
+  },
+  {
+    value: 0.24,
+    label: "0.24",
+  },
+  {
+    value: 0.27,
+    label: "0.27",
+  },
+  {
+    value: 0.3,
+    label: "0.3",
+  },
+];
+
+function ConfirmationDialogRaw(props: ConfirmationDialogRawProps) {
+  const { onClose, value: valueProp, open, ...other } = props;
+  const [value, setValue] = React.useState(valueProp);
+  const radioGroupRef = React.useRef<HTMLElement>(null);
+
+  React.useEffect(() => {
+    if (!open) {
+      setValue(valueProp);
+    }
+  }, [valueProp, open]);
+
+  const handleEntering = () => {
+    if (radioGroupRef.current != null) {
+      radioGroupRef.current.focus();
+    }
+  };
+
+  const handleCancel = () => {
+    onClose();
+  };
+
+  const handleOk = () => {
+    onClose(value);
+  };
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setValue((event.target as HTMLInputElement).value);
+  };
+
+  return (
+    <Dialog
+      sx={{ "& .MuiDialog-paper": { width: "80%", maxHeight: 435 } }}
+      maxWidth="xs"
+      TransitionProps={{ onEntering: handleEntering }}
+      open={open}
+      {...other}
+    >
+      <DialogTitle>Válassz egy algoritmust!</DialogTitle>
+      <DialogContent dividers>
+        <RadioGroup
+          ref={radioGroupRef}
+          aria-label="simplification-algorithms"
+          name="simplification-algorithms"
+          value={value}
+          onChange={handleChange}
+        >
+          {options.map((option) => (
+            <FormControlLabel
+              value={option.name}
+              disabled={option.disabled}
+              key={option.name}
+              control={<Radio />}
+              label={option.name}
+            />
+          ))}
+        </RadioGroup>
+      </DialogContent>
+      <DialogActions>
+        <Button autoFocus onClick={handleCancel}>
+          Cancel
+        </Button>
+        <Button onClick={handleOk}>Ok</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 const Header: React.FC<HeaderProps> = ({
   onDataUpload,
   onResetData,
   onToggleWorldMap,
   onSimplify,
   onToggleSimplification,
+  data,
 }) => {
   const [fileUploaded, setFileUploaded] = useState<boolean>(false);
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
-  const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
   const [simplificationEnabled, setSimplificationEnabled] =
     useState<boolean>(false);
-
-  const availableTolerances = [
-    {
-      value: 0,
-      label: "0",
-    },
-    {
-      value: 0.02,
-      label: "0.02",
-    },
-    {
-      value: 0.04,
-      label: "0.04",
-    },
-    {
-      value: 0.06,
-      label: "0.06",
-    },
-    {
-      value: 0.08,
-      label: "0.08",
-    },
-    {
-      value: 0.1,
-      label: "0.1",
-    },
-  ];
+  const [simplificationDialogOpen, setSimplificationDialogOpen] =
+    useState<boolean>(false);
+  const [simplificationDialogValue, setSimplificationDialogValue] =
+    useState<string>("");
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -111,14 +226,12 @@ const Header: React.FC<HeaderProps> = ({
         "http://localhost:5000/api/upload",
         formData
       );
-      
+
       onDataUpload(res.data);
       setFileUploaded(true);
     } catch (err) {
       console.error("HIBA:", err);
-
       setSnackbarOpen(true);
-
       setFileUploaded(false);
     }
   };
@@ -138,29 +251,81 @@ const Header: React.FC<HeaderProps> = ({
     setFileUploaded(false);
     onResetData();
     setSimplificationEnabled(false);
-    handleClose();
+    handleDeleteDialogClose();
   };
 
-  const handleClickOpen = () => {
-    setDialogOpen(true);
+  const handleDeleteDialogOpen = () => {
+    setDeleteDialogOpen(true);
   };
 
-  const handleClose = () => {
-    setDialogOpen(false);
+  const handleDeleteDialogClose = () => {
+    setDeleteDialogOpen(false);
   };
 
   const handleSliderChange = (_event: Event, newValue: number | number[]) => {
     onSimplify(newValue as number);
   };
 
-  const handleSimplify = () => {
+  const handleSimplify = (algorithm: string) => {
     setSimplificationEnabled((prev: boolean) => !prev);
 
     if (simplificationEnabled) {
       onSimplify(0);
     }
 
-    onToggleSimplification(availableTolerances.map((t) => t.value));
+    onToggleSimplification(
+      availableTolerances.map((t) => t.value),
+      algorithm
+    );
+  };
+
+  const handleDownload = async () => {
+    if (!data) {
+      return;
+
+      //TODO
+    }
+
+    try {
+      const response = await axios.post(
+        "http://localhost:5000/api/download_shapefile",
+        { geojson: data },
+        {
+          responseType: "blob", // Important for handling binary data
+        }
+      );
+
+      // Create a URL for the blob response
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "map_shapefile.shp"); // Define file name
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Error downloading shapefile:", error);
+    }
+  };
+
+  const handleSimplificationDialog = () => {
+    if (simplificationEnabled) {
+      handleSimplify("");
+      setSimplificationDialogValue("");
+      return;
+    }
+
+    setSimplificationDialogOpen(true);
+  };
+
+  const handleClose = (newValue?: string) => {
+    setSimplificationDialogOpen(false);
+
+    if (newValue) {
+      setSimplificationDialogValue(newValue);
+
+      handleSimplify(newValue);
+    }
   };
 
   return (
@@ -196,7 +361,7 @@ const Header: React.FC<HeaderProps> = ({
                     variant="contained"
                     startIcon={<CloudDownloadIcon />}
                     color="success"
-                    // onClick={}
+                    onClick={handleDownload}
                   >
                     Letöltés
                   </Button>
@@ -215,7 +380,7 @@ const Header: React.FC<HeaderProps> = ({
                     direction="row"
                     sx={{ justifyContent: "" }}
                   >
-                    <Box sx={{ width: 350 }}>
+                    <Box sx={{ width: 450 }}>
                       <Stack
                         spacing={2}
                         direction="row"
@@ -248,9 +413,11 @@ const Header: React.FC<HeaderProps> = ({
                     variant="contained"
                     startIcon={<PolylineIcon />}
                     color="warning"
-                    onClick={handleSimplify}
+                    onClick={handleSimplificationDialog}
                   >
-                    Egyszerűsítés
+                    {simplificationDialogValue == ""
+                      ? "Egyszerűsítés"
+                      : simplificationDialogValue}
                   </Button>
                   <Button
                     variant="contained"
@@ -264,7 +431,7 @@ const Header: React.FC<HeaderProps> = ({
                     variant="contained"
                     startIcon={<DeleteIcon />}
                     color="error"
-                    onClick={handleClickOpen}
+                    onClick={handleDeleteDialogOpen}
                   >
                     Törlés
                   </Button>
@@ -297,7 +464,7 @@ const Header: React.FC<HeaderProps> = ({
           Feltöltés sikertelen!
         </Alert>
       </Snackbar>
-      <Dialog open={dialogOpen} onClose={handleClose}>
+      <Dialog open={deleteDialogOpen} onClose={handleDeleteDialogClose}>
         <DialogTitle>{"Figyelmeztetés"}</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -305,7 +472,7 @@ const Header: React.FC<HeaderProps> = ({
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose}>Mégsem</Button>
+          <Button onClick={handleDeleteDialogClose}>Mégsem</Button>
           <Button
             onClick={deleteFile}
             autoFocus
@@ -316,6 +483,13 @@ const Header: React.FC<HeaderProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+      <ConfirmationDialogRaw
+        id="ringtone-menu"
+        keepMounted
+        open={simplificationDialogOpen}
+        onClose={handleClose}
+        value={simplificationDialogValue}
+      />
     </ThemeProvider>
   );
 };

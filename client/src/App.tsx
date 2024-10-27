@@ -25,7 +25,7 @@ export default function App() {
 
   const resetData = () => {
     setData(null);
-    setSimplifiedData(null)
+    setSimplifiedData(null);
     setBounds(null);
   };
 
@@ -37,11 +37,15 @@ export default function App() {
     setCurrentTolerance(tolerance);
   };
 
-  const toggleSimplification = async (availableTolerances: number[]) => {
+  const toggleSimplification = async (
+    availableTolerances: number[],
+    algorithm: String
+  ) => {
     try {
       const res = await axios.post("http://localhost:5000/api/simplify", {
         geojson: data,
         tolerances: availableTolerances,
+        algorithm: algorithm,
       });
 
       setSimplifiedData(res.data);
@@ -58,6 +62,7 @@ export default function App() {
         onToggleWorldMap={toggleWorldMap}
         onSimplify={handleSimplify}
         onToggleSimplification={toggleSimplification}
+        data={data}
       />
 
       {!data && !simplifiedData ? (

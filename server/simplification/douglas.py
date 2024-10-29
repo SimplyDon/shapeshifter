@@ -1,6 +1,6 @@
 import geopandas as gpd
 import numpy as np
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Polygon, MultiPolygon
 
 # Function to calculate the perpendicular distance from a point to a line segment
 def perpendicular_distance(point, start, end):
@@ -51,7 +51,6 @@ def douglas_peucker(coords, tolerance):
 
 # Simplify geometry in a GeoDataFrame
 def simplify_geometries(gdf, tolerance):
-    """Apply Douglas-Peucker simplification to all geometries in a GeoDataFrame."""
     simplified_geometries = []
     
     for geom in gdf.geometry:
@@ -59,8 +58,53 @@ def simplify_geometries(gdf, tolerance):
             coords = list(geom.coords)
             simplified_coords = douglas_peucker(coords, tolerance)
             simplified_geometries.append(LineString(simplified_coords))
+            
+        elif geom.geom_type == 'Polygon':
+            # Simplify the exterior ring
+            exterior_coords = list(geom.exterior.coords)
+            simplified_exterior = douglas_peucker(exterior_coords, tolerance)
+            
+            # Check if the exterior ring is valid
+            if len(simplified_exterior) < 4:
+                simplified_geometries.append(None)  # Mark as None if invalid
+                continue
+            
+            # Simplify each interior ring (hole) in the polygon
+            simplified_interiors = []
+            for interior in geom.interiors:
+                interior_coords = list(interior.coords)
+                simplified_interior = douglas_peucker(interior_coords, tolerance)
+                if len(simplified_interior) > 2:  # Only keep if valid
+                    simplified_interiors.append(LineString(simplified_interior))
+            
+            # Create the simplified polygon with exterior and interiors
+            simplified_geometries.append(Polygon(simplified_exterior, simplified_interiors))
+        
+        elif geom.geom_type == 'MultiPolygon':
+            # Handle MultiPolygon by simplifying each Polygon
+            simplified_polys = []
+            for polygon in geom.geoms:
+                exterior_coords = list(polygon.exterior.coords)
+                simplified_exterior = douglas_peucker(exterior_coords, tolerance)
+
+                # Check if the exterior ring is valid
+                if len(simplified_exterior) < 4:
+                    simplified_polys.append(None)  # Mark as None if invalid
+                    continue
+
+                # Simplify each interior ring
+                simplified_interiors = []
+                for interior in polygon.interiors:
+                    interior_coords = list(interior.coords)
+                    simplified_interior = douglas_peucker(interior_coords, tolerance)
+                    if len(simplified_interior) > 2:  # Only keep if valid
+                        simplified_interiors.append(LineString(simplified_interior))
+
+                simplified_polys.append(Polygon(simplified_exterior, simplified_interiors))
+            simplified_geometries.append(MultiPolygon(simplified_polys))
+        
         else:
-            # Optionally handle other geometry types (e.g., MultiLineString, Polygon)
+            # For unsupported geometry types, retain original geometry
             simplified_geometries.append(geom)
     
     # Create a new GeoDataFrame with simplified geometries

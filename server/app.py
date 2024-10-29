@@ -62,11 +62,10 @@ def simplify_shape():
             simplified_gdf = gdf
             
             if algorithm == "Douglas-Peucker":
-                simplified_gdf = gdf.simplify(tolerance=tolerance)
+                # simplified_gdf = gdf.simplify(tolerance=tolerance) # built-in
+                simplified_gdf = simplify_geometries(gdf, tolerance)
             elif algorithm == "Visvalingem":
                 pass
-            
-            # simplified_gdf = simplify_geometries(gdf, tolerance)
             
             geojson_data = simplified_gdf.to_json()
             simplified_geojsons[tolerance] = json.loads(geojson_data)
@@ -81,23 +80,47 @@ def simplify_shape():
 @app.route('/api/download_shapefile', methods=['POST'])
 def download_shapefile():
     try:
-        data = request.get_json()  # Receive GeoJSON data from frontend
+        data = request.get_json()
         geojson = data['geojson']
 
-        # Load GeoJSON data into GeoDataFrame
         gdf = gpd.GeoDataFrame.from_features(geojson['features'])
 
-        # Define the shapefile path
         shapefile_path = "current_map_shapefile.shp"
         gdf.to_file(shapefile_path, driver="ESRI Shapefile")
 
-        # Send the single .shp file as a response
         return send_file(
             shapefile_path,
             as_attachment=True,
             download_name="map_shapefile.shp",
             mimetype="application/octet-stream"
         )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    
+    
+ZIP_FOLDER = "./samples"
+
+@app.route('/api/load_country/<country_name>', methods=['GET'])
+def load_country_shapefile(country_name):
+    try:
+        zip_path = os.path.join(ZIP_FOLDER, f"{country_name}.zip")
+        
+        if not os.path.isfile(zip_path):
+            return jsonify({"error": "File not found"}), 404
+
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(ZIP_FOLDER)
+            shapefile_path = [f for f in zip_ref.namelist() if f.endswith('.shp')][0]
+            shapefile_full_path = os.path.join(ZIP_FOLDER, shapefile_path)
+
+        gdf = gpd.read_file(shapefile_full_path)
+        geojson_data = gdf.to_json()
+
+        for file in zip_ref.namelist():
+            os.remove(os.path.join(ZIP_FOLDER, file))
+
+        return jsonify(json.loads(geojson_data))
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400

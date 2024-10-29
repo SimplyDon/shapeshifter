@@ -38,6 +38,7 @@ const theme = createTheme({
 });
 
 interface HeaderProps {
+  data: () => void;
   onDataUpload: (data: any) => void;
   onResetData: () => void;
   onToggleWorldMap: () => void;
@@ -46,7 +47,8 @@ interface HeaderProps {
     availableTolerances: number[],
     algorithm: String
   ) => void;
-  data: () => void;
+  fileUploaded: boolean;
+  setFileUploaded: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export interface ConfirmationDialogRawProps {
@@ -192,14 +194,15 @@ function ConfirmationDialogRaw(props: ConfirmationDialogRawProps) {
 }
 
 const Header: React.FC<HeaderProps> = ({
+  data,
   onDataUpload,
   onResetData,
   onToggleWorldMap,
   onSimplify,
   onToggleSimplification,
-  data,
-}) => {
-  const [fileUploaded, setFileUploaded] = useState<boolean>(false);
+  fileUploaded,
+  setFileUploaded,
+}: HeaderProps) => {
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
   const [simplificationEnabled, setSimplificationEnabled] =

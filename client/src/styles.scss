@@ -28,3 +28,19 @@ body {
     color: #d8f3dc;
     transform: scale(1.5)
 }
+
+.helpButton {
+    background-color: #b5838d;
+    border-radius: 20px;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+.helpIcon {
+    color: #ffb4a2;
+    transform: scale(1.5)
+}

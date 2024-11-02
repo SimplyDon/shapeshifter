@@ -17,7 +17,7 @@ def upload_file():
         file = request.files['file']
         
         if not file.filename.endswith('.zip'):
-            return jsonify({"error": "Uploaded file is not a ZIP archive."}), 400
+            return jsonify({"hiba": "A feltöltött fájl nem .zip fájl."}), 400
 
         with tempfile.TemporaryDirectory() as tmpdirname:
             zip_path = os.path.join(tmpdirname, file.filename)
@@ -34,7 +34,7 @@ def upload_file():
                         break
             
             if shp_file is None:
-                return jsonify({"error": "No .shp file found in the ZIP archive."}), 400
+                return jsonify({"hiba": "Nem található .shp fájl."}), 400
 
             gdf = gpd.read_file(shp_file)
             
@@ -43,7 +43,7 @@ def upload_file():
             return jsonify(json.loads(geojson_data))
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"hiba": str(e)}), 400
     
     
 @app.route('/api/simplify', methods=['POST'])
@@ -61,10 +61,12 @@ def simplify_shape():
         for tolerance in tolerances:
             simplified_gdf = gdf
             
-            if algorithm == "Douglas-Peucker":
-                # simplified_gdf = gdf.simplify(tolerance=tolerance) # built-in
+            if algorithm == "Douglas-Peucker (implementált)":
                 simplified_gdf = simplify_geometries(gdf, tolerance)
-            elif algorithm == "Visvalingem":
+            elif algorithm == "Douglas-Peucker (beépített)":
+                simplified_gdf = gdf.simplify(tolerance=tolerance)
+            elif algorithm == "Visvaligam-Whyatt":
+                # simplified_gdf = simplify_geometries_vw(gdf, tolerance)
                 pass
             
             geojson_data = simplified_gdf.to_json()
@@ -73,7 +75,7 @@ def simplify_shape():
         return jsonify(simplified_geojsons)
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"hiba": str(e)}), 400
     
     
     
@@ -91,12 +93,12 @@ def download_shapefile():
         return send_file(
             shapefile_path,
             as_attachment=True,
-            download_name="map_shapefile.shp",
+            download_name="export.shp",
             mimetype="application/octet-stream"
         )
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"hiba": str(e)}), 400
     
     
 ZIP_FOLDER = "./samples"
@@ -107,7 +109,7 @@ def load_country_shapefile(country_name):
         zip_path = os.path.join(ZIP_FOLDER, f"{country_name}.zip")
         
         if not os.path.isfile(zip_path):
-            return jsonify({"error": "File not found"}), 404
+            return jsonify({"hiba": "Fájl nem található"}), 404
 
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(ZIP_FOLDER)
@@ -123,7 +125,7 @@ def load_country_shapefile(country_name):
         return jsonify(json.loads(geojson_data))
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"hiba": str(e)}), 400
     
     
 if __name__ == '__main__':

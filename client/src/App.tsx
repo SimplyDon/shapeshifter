@@ -4,7 +4,13 @@ import Grid from "@mui/material/Grid2";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import CachedIcon from "@mui/icons-material/Cached";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import CasinoIcon from "@mui/icons-material/Casino";
+import HelpIcon from "@mui/icons-material/Help";
 import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import Header from "./Header";
@@ -91,12 +97,15 @@ export default function App() {
   const [fileUploaded, setFileUploaded] = useState<boolean>(false);
   const [simplifiedData, setSimplifiedData] = useState<any>(null);
   const [bounds, setBounds] = useState<any>(null);
-  const [worldMap, setWorldMap] = useState<boolean>(false);
+  const [worldMapEnabled, setWorldMapEnabled] = useState<boolean>(false);
+  const [attributesEnabled, setAttributesEnabled] = useState<boolean>(false);
   const [currentTolerance, setCurrentTolerance] = useState<number>(0);
   const [randomCountries, setRandomCountries] = useState<Country[]>(countries);
+  const [infoDialogOpen, setInfoDialogOpen] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const handleDataUpload = (uploadedData: any) => {
-    setWorldMap(false);
+    setWorldMapEnabled(false);
 
     setData(uploadedData);
 
@@ -110,10 +119,15 @@ export default function App() {
     setData(null);
     setSimplifiedData(null);
     setBounds(null);
+    setCurrentTolerance(0);
   };
 
   const toggleWorldMap = () => {
-    setWorldMap((prev: boolean) => !prev);
+    setWorldMapEnabled((prev: boolean) => !prev);
+  };
+
+  const toggleAttributes = () => {
+    setAttributesEnabled((prev: boolean) => !prev);
   };
 
   const handleSimplify = async (tolerance: number) => {
@@ -124,6 +138,8 @@ export default function App() {
     availableTolerances: number[],
     algorithm: String
   ) => {
+    setLoading(true);
+
     try {
       const res = await axios.post("http://localhost:5000/api/simplify", {
         geojson: data,
@@ -134,13 +150,16 @@ export default function App() {
       setSimplifiedData(res.data);
     } catch (err) {
       console.error("HIBA:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleLoadDataFromSample = (geojsonData: any) => {
     setData(geojsonData);
     setFileUploaded(true);
-    setWorldMap(false);
+    setWorldMapEnabled(false);
+    setAttributesEnabled(false);
 
     const geojsonLayer = L.geoJSON(geojsonData);
     const geojsonBounds = geojsonLayer.getBounds();
@@ -158,26 +177,53 @@ export default function App() {
     setRandomCountries(shuffled);
   };
 
+  const handleInfoDialogOpen = () => {
+    setInfoDialogOpen(true);
+  };
+
+  const handleInfoDialogClose = () => {
+    setInfoDialogOpen(false);
+  };
+
+  const onEachFeature = (feature: any, layer: L.Layer) => {
+    if (feature.properties && attributesEnabled) {
+      const tooltipContent = Object.entries(feature.properties)
+        .map(([key, value]: any) => `<strong>${key}:</strong> ${value}`)
+        .join("<br>");
+
+      layer.bindTooltip(tooltipContent, {
+        sticky: true,
+        direction: "top",
+      });
+    } else {
+      layer.unbindTooltip();
+    }
+  };
+
   return (
     <>
       <Header
+        data={data}
+        setFileUploaded={setFileUploaded}
         onDataUpload={handleDataUpload}
         onResetData={resetData}
         onToggleWorldMap={toggleWorldMap}
+        onToggleAttributes={toggleAttributes}
         onSimplify={handleSimplify}
         onToggleSimplification={toggleSimplification}
-        data={data}
         fileUploaded={fileUploaded}
-        setFileUploaded={setFileUploaded}
+        attributesEnabled={attributesEnabled}
+        worldmapEnabled={worldMapEnabled}
+        loading={loading}
       />
 
       {!data && !simplifiedData ? (
         <Container>
           <Typography variant="h3" textAlign="center" marginTop={5}>
-            Tölts fel egy .zip fájlt a megfelelő komponensekkel!
+            Tölts fel egy <b>.zip</b> fájlt a megfelelő komponensekkel!
           </Typography>
           <Typography variant="h5" textAlign="center" marginTop={2}>
-            Vagy válassz egy országot!
+            Vagy válassz egy neked tetsző országot!
           </Typography>
           <motion.div
             variants={containerVariants}
@@ -206,28 +252,44 @@ export default function App() {
               ))}
             </Grid>
           </motion.div>
-          <Grid
-            sx={{ display: "flex", justifyContent: "center" }}
-            marginTop={5}
-          >
-            <motion.div
-              className="reloadButton"
-              onClick={reloadCountries}
-              whileHover={{ scale: 1.2, rotate: 90 }}
-              whileTap={{
-                scale: 0.9,
-                rotate: -90,
-                borderRadius: "100%",
-              }}
+          <Grid container spacing={8} display="flex" justifyContent="center">
+            <Grid
+              sx={{ display: "flex", justifyContent: "center" }}
+              marginTop={5}
             >
-              <CachedIcon className="reloadIcon" />
-            </motion.div>
+              <motion.div
+                className="reloadButton"
+                onClick={reloadCountries}
+                whileHover={{ scale: 1.2, rotate: 90 }}
+                whileTap={{
+                  scale: 0.9,
+                  rotate: -90,
+                  borderRadius: "100%",
+                }}
+              >
+                <CasinoIcon className="reloadIcon" />
+              </motion.div>
+            </Grid>
+            <Grid
+              sx={{ display: "flex", justifyContent: "center" }}
+              marginTop={5}
+            >
+              <motion.div
+                className="helpButton"
+                onClick={handleInfoDialogOpen}
+                whileHover={{ scale: 1.2, rotate: 180 }}
+                whileTap={{
+                  scale: 0.9,
+                  rotate: -90,
+                  borderRadius: "100%",
+                }}
+              >
+                <HelpIcon className="helpIcon" />
+              </motion.div>
+            </Grid>
           </Grid>
-          <Container>
-            <Grid container></Grid>
-          </Container>
         </Container>
-      ) : worldMap ? (
+      ) : worldMapEnabled ? (
         <>
           <MapContainer bounds={bounds}>
             <TileLayer
@@ -235,23 +297,62 @@ export default function App() {
               attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
             />
             <GeoJSON
-              key={JSON.stringify(
+              key={`${JSON.stringify(
                 simplifiedData ? simplifiedData[currentTolerance] : data
-              )}
+              )}-${attributesEnabled}`}
               data={simplifiedData ? simplifiedData[currentTolerance] : data}
+              onEachFeature={onEachFeature}
             />
           </MapContainer>
         </>
       ) : (
         <MapContainer bounds={bounds}>
           <GeoJSON
-            key={JSON.stringify(
+            key={`${JSON.stringify(
               simplifiedData ? simplifiedData[currentTolerance] : data
-            )}
+            )}-${attributesEnabled}`}
             data={simplifiedData ? simplifiedData[currentTolerance] : data}
+            onEachFeature={onEachFeature}
           />
         </MapContainer>
       )}
+      <Dialog open={infoDialogOpen} onClose={handleInfoDialogClose}>
+        <DialogTitle>{"Szükséges komponensek"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText variant="h6">
+            A <b>.zip</b> fájlnak kötelezően tartalmaznia kell:
+            <ul>
+              <li>
+                <b>.shp</b> - tartalmazza magát a geometriát
+              </li>
+              <li>
+                <b>.shx</b> - a <b>.shp</b> fájlhoz tartozó indexek
+              </li>
+            </ul>
+            Opcionális fájlok:
+            <ul>
+              <li>
+                <b>.dbf</b> - a geometriá(k)hoz tartozó attribútum(ok)
+              </li>
+              <li>
+                <b>.cpg</b> - a <b>.dbf</b> fájlhoz tartozó karakterkódolás
+              </li>
+              <li>
+                <b>.prj</b> - vetületi rendszer leírása
+              </li>
+            </ul>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleInfoDialogClose}
+          >
+            Rendben
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

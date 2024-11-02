@@ -1,16 +1,20 @@
 import React, { useState } from "react";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
-import { indigo, purple } from "@mui/material/colors";
+import {
+  createTheme,
+  ThemeProvider,
+  PaletteColorOptions,
+} from "@mui/material/styles";
 import axios from "axios";
 import "./styles.scss";
 import { styled } from "@mui/material/styles";
 import Button from "@mui/material/Button";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
-import DashboardIcon from "@mui/icons-material/Dashboard";
 import Slider from "@mui/material/Slider";
+import LinearProgress from "@mui/material/LinearProgress";
 import PentagonIcon from "@mui/icons-material/Pentagon";
 import HexagonIcon from "@mui/icons-material/Hexagon";
+import DataObjectIcon from "@mui/icons-material/DataObject";
 import Stack from "@mui/material/Stack";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
@@ -30,25 +34,55 @@ import RadioGroup from "@mui/material/RadioGroup";
 import Radio from "@mui/material/Radio";
 import FormControlLabel from "@mui/material/FormControlLabel";
 
+declare module "@mui/material/styles" {
+  interface CustomPalette {
+    primary: PaletteColorOptions;
+    success: PaletteColorOptions;
+    beige: PaletteColorOptions;
+    brown: PaletteColorOptions;
+  }
+  interface Palette extends CustomPalette {}
+  interface PaletteOptions extends CustomPalette {}
+}
+
+declare module "@mui/material/Button" {
+  interface ButtonPropsColorOverrides {
+    primary: true;
+    success: true;
+    beige: true;
+    brown: true;
+  }
+}
+
+const { palette } = createTheme();
+const { augmentColor } = palette;
+const createColor = (mainColor: any) =>
+  augmentColor({ color: { main: mainColor } });
 const theme = createTheme({
   palette: {
-    primary: indigo,
-    secondary: purple,
+    primary: createColor("#3f51b5"),
+    success: createColor("#57cc99"),
+    beige: createColor("#f0f3bd"),
+    brown: createColor("#c38e70"),
   },
 });
 
 interface HeaderProps {
   data: () => void;
+  setFileUploaded: React.Dispatch<React.SetStateAction<boolean>>;
   onDataUpload: (data: any) => void;
   onResetData: () => void;
   onToggleWorldMap: () => void;
+  onToggleAttributes: () => void;
   onSimplify: (tolerance: number) => void;
   onToggleSimplification: (
     availableTolerances: number[],
     algorithm: String
   ) => void;
   fileUploaded: boolean;
-  setFileUploaded: React.Dispatch<React.SetStateAction<boolean>>;
+  attributesEnabled: boolean;
+  worldmapEnabled: boolean;
+  loading: boolean;
 }
 
 export interface ConfirmationDialogRawProps {
@@ -72,8 +106,10 @@ const VisuallyHiddenInput = styled("input")({
 });
 
 const options = [
-  { name: "Douglas-Peucker", disabled: false },
-  { name: "Visvaligam-Whyatt", disabled: true },
+  { name: "Douglas-Peucker (beépített)", disabled: false },
+  { name: "Douglas-Peucker (implementált)", disabled: false },
+  { name: "Visvaligam-Whyatt", disabled: false },
+  { name: "Douglas-Peucker (továbbfejlesztett)", disabled: true },
   { name: "Reumann-Witkam", disabled: true },
   { name: "Lang", disabled: true },
   { name: "Opheim", disabled: true },
@@ -85,44 +121,44 @@ const availableTolerances = [
     label: "0",
   },
   {
-    value: 0.03,
-    label: "0.03",
+    value: 0.05,
+    label: "0.5",
   },
   {
-    value: 0.06,
-    label: "0.06",
-  },
-  {
-    value: 0.09,
-    label: "0.09",
-  },
-  {
-    value: 0.12,
-    label: "0.12",
+    value: 0.1,
+    label: "0.1",
   },
   {
     value: 0.15,
     label: "0.15",
   },
   {
-    value: 0.18,
-    label: "0.18",
+    value: 0.2,
+    label: "0.2",
   },
   {
-    value: 0.21,
-    label: "0.21",
-  },
-  {
-    value: 0.24,
-    label: "0.24",
-  },
-  {
-    value: 0.27,
-    label: "0.27",
+    value: 0.25,
+    label: "0.25",
   },
   {
     value: 0.3,
     label: "0.3",
+  },
+  {
+    value: 0.35,
+    label: "0.35",
+  },
+  {
+    value: 0.4,
+    label: "0.4",
+  },
+  {
+    value: 0.45,
+    label: "0.45",
+  },
+  {
+    value: 0.5,
+    label: "0.5",
   },
 ];
 
@@ -185,9 +221,11 @@ function ConfirmationDialogRaw(props: ConfirmationDialogRawProps) {
       </DialogContent>
       <DialogActions>
         <Button autoFocus onClick={handleCancel}>
-          Cancel
+          Mégsem
         </Button>
-        <Button onClick={handleOk}>Ok</Button>
+        <Button onClick={handleOk} variant="contained" color="success">
+          Futtatás
+        </Button>
       </DialogActions>
     </Dialog>
   );
@@ -195,13 +233,17 @@ function ConfirmationDialogRaw(props: ConfirmationDialogRawProps) {
 
 const Header: React.FC<HeaderProps> = ({
   data,
+  setFileUploaded,
   onDataUpload,
   onResetData,
   onToggleWorldMap,
+  onToggleAttributes,
   onSimplify,
   onToggleSimplification,
   fileUploaded,
-  setFileUploaded,
+  attributesEnabled,
+  worldmapEnabled,
+  loading,
 }: HeaderProps) => {
   const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
@@ -254,6 +296,7 @@ const Header: React.FC<HeaderProps> = ({
     setFileUploaded(false);
     onResetData();
     setSimplificationEnabled(false);
+    setSimplificationDialogValue("");
     handleDeleteDialogClose();
   };
 
@@ -283,31 +326,24 @@ const Header: React.FC<HeaderProps> = ({
   };
 
   const handleDownload = async () => {
-    if (!data) {
-      return;
-
-      //TODO
-    }
-
     try {
       const response = await axios.post(
         "http://localhost:5000/api/download_shapefile",
         { geojson: data },
         {
-          responseType: "blob", // Important for handling binary data
+          responseType: "blob",
         }
       );
 
-      // Create a URL for the blob response
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", "map_shapefile.shp"); // Define file name
+      link.setAttribute("download", "export.shp");
       document.body.appendChild(link);
       link.click();
       link.remove();
     } catch (error) {
-      console.error("Error downloading shapefile:", error);
+      console.error("HIBA:", error);
     }
   };
 
@@ -365,47 +401,64 @@ const Header: React.FC<HeaderProps> = ({
                     startIcon={<CloudDownloadIcon />}
                     color="success"
                     onClick={handleDownload}
+                    disabled={loading}
                   >
                     Letöltés
                   </Button>
                   <Button
-                    variant="contained"
+                    variant={worldmapEnabled ? "contained" : "outlined"}
                     startIcon={<PublicIcon />}
-                    color="info"
+                    color="beige"
                     onClick={onToggleWorldMap}
                   >
                     Térkép
                   </Button>
-                </Stack>
-                {simplificationEnabled && (
-                  <Stack
-                    spacing={2}
-                    direction="row"
-                    sx={{ justifyContent: "" }}
+                  <Button
+                    variant={attributesEnabled ? "contained" : "outlined"}
+                    startIcon={<DataObjectIcon />}
+                    color="brown"
+                    onClick={onToggleAttributes}
                   >
-                    <Box sx={{ width: 450 }}>
-                      <Stack
-                        spacing={2}
-                        direction="row"
-                        sx={{ alignItems: "center" }}
-                      >
-                        <HexagonIcon />
-                        <Slider
-                          aria-label="Tolerance"
-                          min={0}
-                          marks={availableTolerances}
-                          max={
-                            availableTolerances[availableTolerances.length - 1]
-                              .value
-                          }
-                          step={null}
-                          color="secondary"
-                          onChange={handleSliderChange}
-                        />
-                        <PentagonIcon />
-                      </Stack>
-                    </Box>
-                  </Stack>
+                    Attribútumok
+                  </Button>
+                </Stack>
+                {loading ? (
+                  <Box
+                    sx={{
+                      width: "70%",
+                      marginTop: "15px",
+                    }}
+                  >
+                    <LinearProgress color="secondary" />
+                  </Box>
+                ) : (
+                  simplificationEnabled && (
+                    <Stack spacing={2} direction="row">
+                      <Box sx={{ width: 450 }}>
+                        <Stack
+                          spacing={2}
+                          direction="row"
+                          sx={{ alignItems: "center" }}
+                        >
+                          <HexagonIcon />
+                          <Slider
+                            aria-label="Tolerance"
+                            min={0}
+                            marks={availableTolerances}
+                            max={
+                              availableTolerances[
+                                availableTolerances.length - 1
+                              ].value
+                            }
+                            step={null}
+                            color="secondary"
+                            onChange={handleSliderChange}
+                          />
+                          <PentagonIcon />
+                        </Stack>
+                      </Box>
+                    </Stack>
+                  )
                 )}
                 <Stack
                   spacing={2}
@@ -417,6 +470,7 @@ const Header: React.FC<HeaderProps> = ({
                     startIcon={<PolylineIcon />}
                     color="warning"
                     onClick={handleSimplificationDialog}
+                    disabled={loading}
                   >
                     {simplificationDialogValue == ""
                       ? "Egyszerűsítés"
@@ -424,17 +478,10 @@ const Header: React.FC<HeaderProps> = ({
                   </Button>
                   <Button
                     variant="contained"
-                    startIcon={<DashboardIcon />}
-                    color="success"
-                    // onClick={}
-                  >
-                    Egyesítés
-                  </Button>
-                  <Button
-                    variant="contained"
                     startIcon={<DeleteIcon />}
                     color="error"
                     onClick={handleDeleteDialogOpen}
+                    disabled={loading}
                   >
                     Törlés
                   </Button>
@@ -487,7 +534,7 @@ const Header: React.FC<HeaderProps> = ({
         </DialogActions>
       </Dialog>
       <ConfirmationDialogRaw
-        id="ringtone-menu"
+        id="simplification-menu"
         keepMounted
         open={simplificationDialogOpen}
         onClose={handleClose}

@@ -11,7 +11,13 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import CasinoIcon from "@mui/icons-material/Casino";
 import HelpIcon from "@mui/icons-material/Help";
-import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  GeoJSON,
+  LayersControl,
+  useMapEvent,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import Header from "./Header";
 import Sample from "./Sample";
@@ -92,10 +98,15 @@ const countries: Country[] = [
   },
 ];
 
+const mapColor = { color: "#264653", fillColor: "#2a9d8f" };
+const simplifiedMapColor1 = { color: "#db5375 ", fillColor: "#ec9192" };
+const simplifiedMapColor2 = { color: "#ffffff ", fillColor: "#eeeeee" };
+
 export default function App() {
   const [data, setData] = useState<any>(null);
   const [fileUploaded, setFileUploaded] = useState<boolean>(false);
-  const [simplifiedData, setSimplifiedData] = useState<any>(null);
+  const [simplifiedData1, setSimplifiedData1] = useState<any>(null);
+  const [simplifiedData2, setSimplifiedData2] = useState<any>(null);
   const [bounds, setBounds] = useState<any>(null);
   const [worldMapEnabled, setWorldMapEnabled] = useState<boolean>(false);
   const [attributesEnabled, setAttributesEnabled] = useState<boolean>(false);
@@ -103,6 +114,8 @@ export default function App() {
   const [randomCountries, setRandomCountries] = useState<Country[]>(countries);
   const [infoDialogOpen, setInfoDialogOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [selectedAlgorithm1, setSelectedAlgorithm1] = useState<string>("");
+  const [selectedAlgorithm2, setSelectedAlgorithm2] = useState<string>("");
 
   const handleDataUpload = (uploadedData: any) => {
     setWorldMapEnabled(false);
@@ -117,7 +130,8 @@ export default function App() {
 
   const resetData = () => {
     setData(null);
-    setSimplifiedData(null);
+    setSimplifiedData1(null);
+    setSimplifiedData2(null);
     setBounds(null);
     setCurrentTolerance(0);
   };
@@ -131,12 +145,19 @@ export default function App() {
   };
 
   const handleSimplify = async (tolerance: number) => {
+    if (tolerance == -1) {
+      setCurrentTolerance(0);
+      setSimplifiedData1(null);
+      setSimplifiedData2(null);
+      return;
+    }
+
     setCurrentTolerance(tolerance);
   };
 
   const toggleSimplification = async (
     availableTolerances: number[],
-    algorithm: String
+    algorithms: string[]
   ) => {
     setLoading(true);
 
@@ -144,13 +165,25 @@ export default function App() {
       const res = await axios.post("http://localhost:5000/api/simplify", {
         geojson: data,
         tolerances: availableTolerances,
-        algorithm: algorithm,
+        algorithms: algorithms,
       });
 
-      setSimplifiedData(res.data);
+      if (algorithms.length === 1) {
+        setSimplifiedData1(res.data[algorithms[0]]);
+      } else if (algorithms.length === 2) {
+        setSimplifiedData1(res.data[algorithms[0]]);
+        setSimplifiedData2(res.data[algorithms[1]]);
+      }
     } catch (err) {
       console.error("HIBA:", err);
     } finally {
+      if (algorithms.length === 1) {
+        setSelectedAlgorithm1(algorithms[0]);
+      } else if (algorithms.length === 2) {
+        setSelectedAlgorithm1(algorithms[0]);
+        setSelectedAlgorithm2(algorithms[1]);
+      }
+
       setLoading(false);
     }
   };
@@ -200,6 +233,16 @@ export default function App() {
     }
   };
 
+  function SetViewOnClick() {
+    const map = useMapEvent("click", (e) => {
+      map.setView(e.latlng, map.getZoom(), {
+        animate: true,
+      });
+    });
+
+    return null;
+  }
+
   return (
     <>
       <Header
@@ -217,7 +260,7 @@ export default function App() {
         loading={loading}
       />
 
-      {!data && !simplifiedData ? (
+      {!data && !simplifiedData1 ? (
         <Container>
           <Typography variant="h3" textAlign="center" marginTop={5}>
             Tölts fel egy <b>.zip</b> fájlt a megfelelő komponensekkel!
@@ -296,24 +339,80 @@ export default function App() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
             />
-            <GeoJSON
-              key={`${JSON.stringify(
-                simplifiedData ? simplifiedData[currentTolerance] : data
-              )}-${attributesEnabled}`}
-              data={simplifiedData ? simplifiedData[currentTolerance] : data}
-              onEachFeature={onEachFeature}
-            />
+            <SetViewOnClick />
+            <LayersControl position="bottomright">
+              <LayersControl.Overlay checked name="Eredeti réteg">
+                <GeoJSON
+                  key={`${JSON.stringify(data)}-${attributesEnabled}`}
+                  data={data}
+                  onEachFeature={onEachFeature}
+                  pathOptions={mapColor}
+                />
+              </LayersControl.Overlay>
+              {simplifiedData1 && (
+                <LayersControl.Overlay checked name={selectedAlgorithm1}>
+                  <GeoJSON
+                    key={`${JSON.stringify(
+                      simplifiedData1[currentTolerance]
+                    )}-${attributesEnabled}`}
+                    data={simplifiedData1[currentTolerance]}
+                    onEachFeature={onEachFeature}
+                    pathOptions={simplifiedMapColor1}
+                  />
+                </LayersControl.Overlay>
+              )}
+              {simplifiedData2 && (
+                <LayersControl.Overlay checked name={selectedAlgorithm2}>
+                  <GeoJSON
+                    key={`${JSON.stringify(
+                      simplifiedData2[currentTolerance]
+                    )}-${attributesEnabled}`}
+                    data={simplifiedData2[currentTolerance]}
+                    onEachFeature={onEachFeature}
+                    pathOptions={simplifiedMapColor2}
+                  />
+                </LayersControl.Overlay>
+              )}
+            </LayersControl>
           </MapContainer>
         </>
       ) : (
         <MapContainer bounds={bounds}>
-          <GeoJSON
-            key={`${JSON.stringify(
-              simplifiedData ? simplifiedData[currentTolerance] : data
-            )}-${attributesEnabled}`}
-            data={simplifiedData ? simplifiedData[currentTolerance] : data}
-            onEachFeature={onEachFeature}
-          />
+          <SetViewOnClick />
+          <LayersControl position="bottomright">
+            <LayersControl.Overlay checked name="Eredeti réteg">
+              <GeoJSON
+                key={`${JSON.stringify(data)}-${attributesEnabled}`}
+                data={data}
+                onEachFeature={onEachFeature}
+                pathOptions={mapColor}
+              />
+            </LayersControl.Overlay>
+            {simplifiedData1 && (
+              <LayersControl.Overlay checked name={selectedAlgorithm1}>
+                <GeoJSON
+                  key={`${JSON.stringify(
+                    simplifiedData1[currentTolerance]
+                  )}-${attributesEnabled}`}
+                  data={simplifiedData1[currentTolerance]}
+                  onEachFeature={onEachFeature}
+                  pathOptions={simplifiedMapColor1}
+                />
+              </LayersControl.Overlay>
+            )}
+            {simplifiedData2 && (
+              <LayersControl.Overlay checked name={selectedAlgorithm2}>
+                <GeoJSON
+                  key={`${JSON.stringify(
+                    simplifiedData2[currentTolerance]
+                  )}-${attributesEnabled}`}
+                  data={simplifiedData2[currentTolerance]}
+                  onEachFeature={onEachFeature}
+                  pathOptions={simplifiedMapColor2}
+                />
+              </LayersControl.Overlay>
+            )}
+          </LayersControl>
         </MapContainer>
       )}
       <Dialog open={infoDialogOpen} onClose={handleInfoDialogClose}>

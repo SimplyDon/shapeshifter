@@ -52,25 +52,28 @@ def simplify_shape():
         data = request.get_json()
         geojson = data['geojson']
         tolerances = data['tolerances']
-        algorithm = data["algorithm"]
+        algorithms = data["algorithms"]
 
         gdf = gpd.GeoDataFrame.from_features(geojson['features'])
 
-        simplified_geojsons = {}
-
-        for tolerance in tolerances:
-            simplified_gdf = gdf
-            
-            if algorithm == "Douglas-Peucker (implementált)":
-                simplified_gdf = simplify_geometries(gdf, tolerance)
-            elif algorithm == "Douglas-Peucker (beépített)":
-                simplified_gdf = gdf.simplify(tolerance=tolerance)
-            elif algorithm == "Visvaligam-Whyatt":
-                # simplified_gdf = simplify_geometries_vw(gdf, tolerance)
-                pass
-            
-            geojson_data = simplified_gdf.to_json()
-            simplified_geojsons[tolerance] = json.loads(geojson_data)
+        simplified_geojsons = {algorithm: {} for algorithm in algorithms}
+        
+        for algorithm in algorithms:
+            for tolerance in tolerances:
+                simplified_gdf = gdf.copy()
+                
+                if algorithm == "Douglas-Peucker (implementált)":
+                    simplified_gdf = simplify_geometries(gdf, tolerance)
+                elif algorithm == "Douglas-Peucker (beépített)":
+                    simplified_gdf = gdf.simplify(tolerance=tolerance)
+                elif algorithm == "Visvaligam-Whyatt":
+                    # simplified_gdf = simplify_geometries_vw(gdf, tolerance)
+                    pass
+                
+                geojson_data = simplified_gdf.to_json()
+                simplified_geojsons[algorithm][tolerance] = json.loads(geojson_data)
+                
+        # print(simplified_geojsons)
 
         return jsonify(simplified_geojsons)
 

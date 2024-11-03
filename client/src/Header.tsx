@@ -5,6 +5,7 @@ import {
   PaletteColorOptions,
 } from "@mui/material/styles";
 import axios from "axios";
+import { motion } from "framer-motion";
 import "./styles.scss";
 import { styled } from "@mui/material/styles";
 import Button from "@mui/material/Button";
@@ -30,16 +31,18 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import PolylineIcon from "@mui/icons-material/Polyline";
-import RadioGroup from "@mui/material/RadioGroup";
-import Radio from "@mui/material/Radio";
+import FormControl from "@mui/material/FormControl";
+import FormGroup from "@mui/material/FormGroup";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import Checkbox from "@mui/material/Checkbox";
 
 declare module "@mui/material/styles" {
   interface CustomPalette {
     primary: PaletteColorOptions;
     success: PaletteColorOptions;
-    beige: PaletteColorOptions;
+    gray: PaletteColorOptions;
     brown: PaletteColorOptions;
+    yellow: PaletteColorOptions;
   }
   interface Palette extends CustomPalette {}
   interface PaletteOptions extends CustomPalette {}
@@ -49,8 +52,9 @@ declare module "@mui/material/Button" {
   interface ButtonPropsColorOverrides {
     primary: true;
     success: true;
-    beige: true;
+    gray: true;
     brown: true;
+    yellow: true;
   }
 }
 
@@ -61,9 +65,10 @@ const createColor = (mainColor: any) =>
 const theme = createTheme({
   palette: {
     primary: createColor("#3f51b5"),
-    success: createColor("#57cc99"),
-    beige: createColor("#f0f3bd"),
+    success: createColor("#2b9348"),
+    gray: createColor("#5c677d"),
     brown: createColor("#c38e70"),
+    yellow: createColor("#e9d8a6"),
   },
 });
 
@@ -77,20 +82,12 @@ interface HeaderProps {
   onSimplify: (tolerance: number) => void;
   onToggleSimplification: (
     availableTolerances: number[],
-    algorithm: String
+    algorithms: string[]
   ) => void;
   fileUploaded: boolean;
   attributesEnabled: boolean;
   worldmapEnabled: boolean;
   loading: boolean;
-}
-
-export interface ConfirmationDialogRawProps {
-  id: string;
-  keepMounted: boolean;
-  value: string;
-  open: boolean;
-  onClose: (value?: string) => void;
 }
 
 const VisuallyHiddenInput = styled("input")({
@@ -105,17 +102,27 @@ const VisuallyHiddenInput = styled("input")({
   width: 1,
 });
 
-const options = [
+interface Option {
+  name: string;
+  disabled: boolean;
+}
+
+const options: Option[] = [
   { name: "Douglas-Peucker (beépített)", disabled: false },
   { name: "Douglas-Peucker (implementált)", disabled: false },
-  { name: "Visvaligam-Whyatt", disabled: false },
   { name: "Douglas-Peucker (továbbfejlesztett)", disabled: true },
+  { name: "Visvaligam-Whyatt", disabled: true },
   { name: "Reumann-Witkam", disabled: true },
   { name: "Lang", disabled: true },
   { name: "Opheim", disabled: true },
 ];
 
-const availableTolerances = [
+interface Tolerance {
+  value: number;
+  label: string;
+}
+
+const availableTolerances: Tolerance[] = [
   {
     value: 0,
     label: "0",
@@ -162,75 +169,6 @@ const availableTolerances = [
   },
 ];
 
-function ConfirmationDialogRaw(props: ConfirmationDialogRawProps) {
-  const { onClose, value: valueProp, open, ...other } = props;
-  const [value, setValue] = React.useState(valueProp);
-  const radioGroupRef = React.useRef<HTMLElement>(null);
-
-  React.useEffect(() => {
-    if (!open) {
-      setValue(valueProp);
-    }
-  }, [valueProp, open]);
-
-  const handleEntering = () => {
-    if (radioGroupRef.current != null) {
-      radioGroupRef.current.focus();
-    }
-  };
-
-  const handleCancel = () => {
-    onClose();
-  };
-
-  const handleOk = () => {
-    onClose(value);
-  };
-
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setValue((event.target as HTMLInputElement).value);
-  };
-
-  return (
-    <Dialog
-      sx={{ "& .MuiDialog-paper": { width: "80%", maxHeight: 435 } }}
-      maxWidth="xs"
-      TransitionProps={{ onEntering: handleEntering }}
-      open={open}
-      {...other}
-    >
-      <DialogTitle>Válassz egy algoritmust!</DialogTitle>
-      <DialogContent dividers>
-        <RadioGroup
-          ref={radioGroupRef}
-          aria-label="simplification-algorithms"
-          name="simplification-algorithms"
-          value={value}
-          onChange={handleChange}
-        >
-          {options.map((option) => (
-            <FormControlLabel
-              value={option.name}
-              disabled={option.disabled}
-              key={option.name}
-              control={<Radio />}
-              label={option.name}
-            />
-          ))}
-        </RadioGroup>
-      </DialogContent>
-      <DialogActions>
-        <Button autoFocus onClick={handleCancel}>
-          Mégsem
-        </Button>
-        <Button onClick={handleOk} variant="contained" color="success">
-          Futtatás
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
 const Header: React.FC<HeaderProps> = ({
   data,
   setFileUploaded,
@@ -251,8 +189,29 @@ const Header: React.FC<HeaderProps> = ({
     useState<boolean>(false);
   const [simplificationDialogOpen, setSimplificationDialogOpen] =
     useState<boolean>(false);
-  const [simplificationDialogValue, setSimplificationDialogValue] =
-    useState<string>("");
+  const [algorithms, setAlgorithms] = useState<Record<string, boolean>>(
+    options.reduce((acc: any, option: any) => {
+      acc[option.name] = false;
+      return acc;
+    }, {} as Record<string, boolean>)
+  );
+  const [numberOfSelectedAlgorithms, setNumberOfSelectedAlgorithms] =
+    useState<number>(0);
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setAlgorithms({
+      ...algorithms,
+      [event.target.name]: event.target.checked,
+    });
+  };
+
+  const selectedItems: number =
+    Object.values(algorithms).filter(Boolean).length;
+
+  const simplificationDialogWarning: boolean = selectedItems == 2;
+
+  const simplificationDialogError: boolean =
+    selectedItems > 2 || selectedItems == 0;
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -296,7 +255,6 @@ const Header: React.FC<HeaderProps> = ({
     setFileUploaded(false);
     onResetData();
     setSimplificationEnabled(false);
-    setSimplificationDialogValue("");
     handleDeleteDialogClose();
   };
 
@@ -312,16 +270,17 @@ const Header: React.FC<HeaderProps> = ({
     onSimplify(newValue as number);
   };
 
-  const handleSimplify = (algorithm: string) => {
+  const handleSimplify = (algorithms: string[]) => {
     setSimplificationEnabled((prev: boolean) => !prev);
 
     if (simplificationEnabled) {
-      onSimplify(0);
+      onSimplify(-1);
+      return;
     }
 
     onToggleSimplification(
       availableTolerances.map((t) => t.value),
-      algorithm
+      algorithms
     );
   };
 
@@ -349,22 +308,38 @@ const Header: React.FC<HeaderProps> = ({
 
   const handleSimplificationDialog = () => {
     if (simplificationEnabled) {
-      handleSimplify("");
-      setSimplificationDialogValue("");
+      handleSimplify([]);
       return;
     }
 
     setSimplificationDialogOpen(true);
   };
 
-  const handleClose = (newValue?: string) => {
+  const handleClose = () => {
     setSimplificationDialogOpen(false);
+    setAlgorithms(
+      options.reduce((acc: any, option: any) => {
+        acc[option.name] = false;
+        return acc;
+      }, {} as Record<string, boolean>)
+    );
+  };
 
-    if (newValue) {
-      setSimplificationDialogValue(newValue);
+  const handleSubmit = () => {
+    setSimplificationDialogOpen(false);
+    setAlgorithms(
+      options.reduce((acc: any, option: any) => {
+        acc[option.name] = false;
+        return acc;
+      }, {} as Record<string, boolean>)
+    );
 
-      handleSimplify(newValue);
-    }
+    const selectedValues = Object.entries(algorithms)
+      .filter(([_, value]) => value)
+      .map(([key, _]) => key);
+
+    setNumberOfSelectedAlgorithms(selectedValues.length);
+    handleSimplify(selectedValues);
   };
 
   return (
@@ -400,6 +375,7 @@ const Header: React.FC<HeaderProps> = ({
                     variant="contained"
                     startIcon={<CloudDownloadIcon />}
                     color="success"
+                    sx={{ color: "white" }}
                     onClick={handleDownload}
                     disabled={loading}
                   >
@@ -408,7 +384,8 @@ const Header: React.FC<HeaderProps> = ({
                   <Button
                     variant={worldmapEnabled ? "contained" : "outlined"}
                     startIcon={<PublicIcon />}
-                    color="beige"
+                    color="gray"
+                    sx={{ color: "white" }}
                     onClick={onToggleWorldMap}
                   >
                     Térkép
@@ -417,6 +394,7 @@ const Header: React.FC<HeaderProps> = ({
                     variant={attributesEnabled ? "contained" : "outlined"}
                     startIcon={<DataObjectIcon />}
                     color="brown"
+                    sx={{ color: "white" }}
                     onClick={onToggleAttributes}
                   >
                     Attribútumok
@@ -468,13 +446,13 @@ const Header: React.FC<HeaderProps> = ({
                   <Button
                     variant="contained"
                     startIcon={<PolylineIcon />}
-                    color="warning"
+                    color={simplificationEnabled ? "yellow" : "warning"}
                     onClick={handleSimplificationDialog}
                     disabled={loading}
                   >
-                    {simplificationDialogValue == ""
-                      ? "Egyszerűsítés"
-                      : simplificationDialogValue}
+                    {simplificationEnabled
+                      ? `Egyszerűsítés (${numberOfSelectedAlgorithms} db)`
+                      : "Egyszerűsítés"}
                   </Button>
                   <Button
                     variant="contained"
@@ -533,13 +511,65 @@ const Header: React.FC<HeaderProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
-      <ConfirmationDialogRaw
-        id="simplification-menu"
-        keepMounted
-        open={simplificationDialogOpen}
-        onClose={handleClose}
-        value={simplificationDialogValue}
-      />
+      <Dialog open={simplificationDialogOpen} onClose={handleClose}>
+        <DialogTitle>
+          Válassz <b>max. 2</b> algoritmust!
+        </DialogTitle>
+        <DialogContent>
+          <FormControl
+            required
+            error={simplificationDialogError}
+            component="fieldset"
+            sx={{ m: 3 }}
+            variant="standard"
+          >
+            <FormGroup>
+              {options.map((option) => (
+                <FormControlLabel
+                  key={option.name}
+                  control={
+                    <Checkbox
+                      checked={algorithms[option.name]}
+                      onChange={handleChange}
+                      name={option.name}
+                      disabled={option.disabled}
+                    />
+                  }
+                  label={option.name}
+                />
+              ))}
+            </FormGroup>
+          </FormControl>
+          {simplificationDialogWarning && (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{
+                type: "spring",
+                stiffness: 260,
+                damping: 20,
+              }}
+            >
+              <Alert severity="warning">
+                Több algoritmus számolása időigényes lehet.
+              </Alert>
+            </motion.div>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose} color="primary">
+            Mégsem
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleSubmit}
+            disabled={simplificationDialogError}
+          >
+            Futtatás
+          </Button>
+        </DialogActions>
+      </Dialog>
     </ThemeProvider>
   );
 };

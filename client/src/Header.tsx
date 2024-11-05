@@ -108,10 +108,11 @@ interface Option {
 }
 
 const options: Option[] = [
-  { name: "Douglas-Peucker (beépített)", disabled: false },
-  { name: "Douglas-Peucker (implementált)", disabled: false },
-  { name: "Douglas-Peucker (továbbfejlesztett)", disabled: true },
-  { name: "Visvaligam-Whyatt", disabled: true },
+  { name: "Ramer-Douglas-Peucker (beépített)", disabled: false },
+  { name: "Ramer-Douglas-Peucker (implementált)", disabled: false },
+  { name: "Ramer-Douglas-Peucker (továbbfejlesztett)", disabled: true },
+  { name: "Visvaligam-Whyatt", disabled: false },
+  { name: "Zhao-Saalfeld", disabled: true },
   { name: "Reumann-Witkam", disabled: true },
   { name: "Lang", disabled: true },
   { name: "Opheim", disabled: true },
@@ -183,7 +184,9 @@ const Header: React.FC<HeaderProps> = ({
   worldmapEnabled,
   loading,
 }: HeaderProps) => {
-  const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
+  const [errorSnackbarOpen, setErrorSnackbarOpen] = useState<boolean>(false);
+  const [warningSnackbarOpen, setWarningSnackbarOpen] =
+    useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
   const [simplificationEnabled, setSimplificationEnabled] =
     useState<boolean>(false);
@@ -231,11 +234,15 @@ const Header: React.FC<HeaderProps> = ({
         formData
       );
 
-      onDataUpload(res.data);
+      onDataUpload(res.data["geojson"]);
       setFileUploaded(true);
+
+      if (res.data["warning"]) {
+        setWarningSnackbarOpen(true);
+      }
     } catch (err) {
       console.error("HIBA:", err);
-      setSnackbarOpen(true);
+      setErrorSnackbarOpen(true);
       setFileUploaded(false);
     }
   };
@@ -248,7 +255,8 @@ const Header: React.FC<HeaderProps> = ({
       return;
     }
 
-    setSnackbarOpen(false);
+    setErrorSnackbarOpen(false);
+    setWarningSnackbarOpen(false);
   };
 
   const deleteFile = () => {
@@ -470,7 +478,7 @@ const Header: React.FC<HeaderProps> = ({
         </AppBar>
       </Box>
       <Snackbar
-        open={snackbarOpen}
+        open={errorSnackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
         anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
@@ -490,6 +498,29 @@ const Header: React.FC<HeaderProps> = ({
           }
         >
           Feltöltés sikertelen!
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={warningSnackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity="warning"
+          action={
+            <IconButton
+              size="small"
+              aria-label="close"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          }
+        >
+          Az attribútumokat tartalmazó .dbf fájl nem található!
         </Alert>
       </Snackbar>
       <Dialog open={deleteDialogOpen} onClose={handleDeleteDialogClose}>

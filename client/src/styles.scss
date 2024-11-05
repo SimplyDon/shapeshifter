@@ -1,3 +1,8 @@
+$green: #40916c;
+$lime: #d8f3dc;
+$brown: #b5838d;
+$beige: #ffb4a2;
+
 body {
     margin: 0;
     padding: 0;
@@ -13,8 +18,7 @@ body {
     transform: scale(1.2);
 }
 
-.reloadButton {
-    background-color: #40916c;
+.menuButton {
     border-radius: 20px;
     width: 60px;
     height: 60px;
@@ -22,25 +26,24 @@ body {
     justify-content: center;
     align-items: center;
     cursor: pointer;
+}
+
+.reloadButton {
+    @extend .menuButton;
+    background-color: $green;
 }
 
 .reloadIcon {
-    color: #d8f3dc;
-    transform: scale(1.5)
+    color: $lime;
+    transform: scale(1.5);
 }
 
 .helpButton {
-    background-color: #b5838d;
-    border-radius: 20px;
-    width: 60px;
-    height: 60px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
+    @extend .menuButton;
+    background-color: $brown;
 }
 
 .helpIcon {
-    color: #ffb4a2;
-    transform: scale(1.5)
+    color: $beige;
+    transform: scale(1.5);
 }

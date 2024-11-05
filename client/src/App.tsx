@@ -119,6 +119,7 @@ export default function App() {
 
   const handleDataUpload = (uploadedData: any) => {
     setWorldMapEnabled(false);
+    setAttributesEnabled(false);
 
     setData(uploadedData);
 
@@ -145,7 +146,7 @@ export default function App() {
   };
 
   const handleSimplify = async (tolerance: number) => {
-    if (tolerance == -1) {
+    if (tolerance === -1) {
       setCurrentTolerance(0);
       setSimplifiedData1(null);
       setSimplifiedData2(null);
@@ -418,8 +419,10 @@ export default function App() {
       <Dialog open={infoDialogOpen} onClose={handleInfoDialogClose}>
         <DialogTitle>{"Szükséges komponensek"}</DialogTitle>
         <DialogContent>
-          <DialogContentText variant="h6">
+          <DialogContentText variant="h6" component={"span"}>
             A <b>.zip</b> fájlnak kötelezően tartalmaznia kell:
+          </DialogContentText>
+          <DialogContentText component={"span"}>
             <ul>
               <li>
                 <b>.shp</b> - tartalmazza magát a geometriát
@@ -428,7 +431,11 @@ export default function App() {
                 <b>.shx</b> - a <b>.shp</b> fájlhoz tartozó indexek
               </li>
             </ul>
+          </DialogContentText>
+          <DialogContentText variant="h6" component={"span"}>
             Opcionális fájlok:
+          </DialogContentText>
+          <DialogContentText component={"span"}>
             <ul>
               <li>
                 <b>.dbf</b> - a geometriá(k)hoz tartozó attribútum(ok)

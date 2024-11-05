@@ -6,7 +6,8 @@ import tempfile
 from flask import send_file
 import zipfile
 import json
-from simplification.douglas import simplify_geometries
+from simplification.douglas import simplify_geometries_rdp
+from simplification.visvalingam import simplify_geometries_vw
 
 app = Flask(__name__)
 cors = CORS(app, origins="*")
@@ -27,11 +28,15 @@ def upload_file():
                 zip_ref.extractall(tmpdirname)
 
             shp_file = None
+            dbf_file_missing = True
+            
             for root, dirs, files in os.walk(tmpdirname):
                 for f in files:
                     if f.endswith('.shp'):
                         shp_file = os.path.join(root, f)
-                        break
+                        
+                    if f.endswith('.dbf'):
+                        dbf_file_missing = False
             
             if shp_file is None:
                 return jsonify({"hiba": "Nem található .shp fájl."}), 400
@@ -40,7 +45,12 @@ def upload_file():
             
             geojson_data = gdf.to_json()
             
-            return jsonify(json.loads(geojson_data))
+            response_data = {
+                "geojson": json.loads(geojson_data),
+                "warning": dbf_file_missing
+            }
+            
+            return jsonify(response_data)
 
     except Exception as e:
         return jsonify({"hiba": str(e)}), 400
@@ -62,18 +72,15 @@ def simplify_shape():
             for tolerance in tolerances:
                 simplified_gdf = gdf.copy()
                 
-                if algorithm == "Douglas-Peucker (implementált)":
-                    simplified_gdf = simplify_geometries(gdf, tolerance)
-                elif algorithm == "Douglas-Peucker (beépített)":
+                if algorithm == "Ramer-Douglas-Peucker (implementált)":
+                    simplified_gdf = simplify_geometries_rdp(gdf, tolerance)
+                elif algorithm == "Ramer-Douglas-Peucker (beépített)":
                     simplified_gdf = gdf.simplify(tolerance=tolerance)
                 elif algorithm == "Visvaligam-Whyatt":
-                    # simplified_gdf = simplify_geometries_vw(gdf, tolerance)
-                    pass
+                    simplified_gdf = simplify_geometries_vw(gdf, tolerance/10)
                 
                 geojson_data = simplified_gdf.to_json()
                 simplified_geojsons[algorithm][tolerance] = json.loads(geojson_data)
-                
-        # print(simplified_geojsons)
 
         return jsonify(simplified_geojsons)
 

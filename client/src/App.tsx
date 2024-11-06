@@ -179,10 +179,10 @@ export default function App() {
       console.error("HIBA:", err);
     } finally {
       if (algorithms.length === 1) {
-        setSelectedAlgorithm1(algorithms[0]);
+        setSelectedAlgorithm1(algorithms[0] + " 🟥");
       } else if (algorithms.length === 2) {
-        setSelectedAlgorithm1(algorithms[0]);
-        setSelectedAlgorithm2(algorithms[1]);
+        setSelectedAlgorithm1(algorithms[0] + " 🟥");
+        setSelectedAlgorithm2(algorithms[1] + " ⬜️");
       }
 
       setLoading(false);
@@ -342,7 +342,7 @@ export default function App() {
             />
             <SetViewOnClick />
             <LayersControl position="bottomright">
-              <LayersControl.Overlay checked name="Eredeti réteg">
+              <LayersControl.Overlay checked name="Eredeti réteg 🟩">
                 <GeoJSON
                   key={`${JSON.stringify(data)}-${attributesEnabled}`}
                   data={data}
@@ -381,7 +381,7 @@ export default function App() {
         <MapContainer bounds={bounds}>
           <SetViewOnClick />
           <LayersControl position="bottomright">
-            <LayersControl.Overlay checked name="Eredeti réteg">
+            <LayersControl.Overlay checked name="Eredeti réteg 🟩">
               <GeoJSON
                 key={`${JSON.stringify(data)}-${attributesEnabled}`}
                 data={data}

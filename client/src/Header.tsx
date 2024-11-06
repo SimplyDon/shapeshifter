@@ -111,9 +111,12 @@ const options: Option[] = [
   { name: "Ramer-Douglas-Peucker (beépített)", disabled: false },
   { name: "Ramer-Douglas-Peucker (implementált)", disabled: false },
   { name: "Ramer-Douglas-Peucker (továbbfejlesztett)", disabled: true },
+  { name: "Reumann-Witkam", disabled: false },
   { name: "Visvaligam-Whyatt", disabled: false },
+  { name: "Merőleges távolság", disabled: false },
+  { name: "Sugárirányú távolság", disabled: false },
+  { name: "N-edik pont", disabled: false },
   { name: "Zhao-Saalfeld", disabled: true },
-  { name: "Reumann-Witkam", disabled: true },
   { name: "Lang", disabled: true },
   { name: "Opheim", disabled: true },
 ];
@@ -130,7 +133,7 @@ const availableTolerances: Tolerance[] = [
   },
   {
     value: 0.05,
-    label: "0.5",
+    label: "0.05",
   },
   {
     value: 0.1,

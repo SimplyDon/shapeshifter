@@ -4,15 +4,16 @@ from simplification.reumann import simplify_geometries_rw
 from simplification.perpendicular_distance import simplify_geometries_pd
 from simplification.radial_distance import simplify_geometries_rd
 from simplification.nth_point import simplify_geometries_nth_point
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 import geopandas as gpd
 from flask_cors import CORS
 import os
+import io
 import tempfile
-from flask import send_file
 import zipfile
 import json
 import math
+import topojson as tp
 
 app = Flask(__name__)
 cors = CORS(app, origins="*")
@@ -101,23 +102,45 @@ def simplify_shape():
         return jsonify({"hiba": str(e)}), 400
 
 
-@app.route('/api/download_shapefile', methods=['POST'])
-def download_shapefile():
+@app.route('/api/unite', methods=['POST'])
+def unite_shape():
     try:
         data = request.get_json()
         geojson = data['geojson']
 
         gdf = gpd.GeoDataFrame.from_features(geojson['features'])
 
-        shapefile_path = "current_map_shapefile.shp"
+        topo = tp.Topology(gdf)
+        united_gdf = topo.toposimplify(1).to_gdf().to_json()
+
+        return jsonify(json.loads(united_gdf))
+
+    except Exception as e:
+        return jsonify({"hiba": str(e)}), 400
+
+
+@app.route('/api/download_shapefile', methods=['POST'])
+def download_shapefile():
+    try:
+        data = request.get_json()
+
+        gdf = gpd.GeoDataFrame.from_features(data['features'])
+
+        temp_dir = tempfile.TemporaryDirectory()
+        shapefile_path = os.path.join(temp_dir.name, "shapeshifter-export.shp")
+
         gdf.to_file(shapefile_path, driver="ESRI Shapefile")
 
-        return send_file(
-            shapefile_path,
-            as_attachment=True,
-            download_name="export.shp",
-            mimetype="application/octet-stream"
-        )
+        zip_buffer = io.BytesIO()
+
+        with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+            for filename in os.listdir(temp_dir.name):
+                file_path = os.path.join(temp_dir.name, filename)
+                zip_file.write(file_path, arcname=filename)
+
+        zip_buffer.seek(0)
+
+        return send_file(zip_buffer, as_attachment=True, download_name="shapeshifter-export.zip", mimetype="application/zip")
 
     except Exception as e:
         return jsonify({"hiba": str(e)}), 400

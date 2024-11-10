@@ -219,6 +219,69 @@ export default function App() {
     setInfoDialogOpen(false);
   };
 
+  const handleUnite = async () => {
+    setLoading(true);
+
+    try {
+      if (simplifiedData1) {
+        const res1 = await axios.post("http://localhost:5000/api/unite", {
+          geojson: simplifiedData1[currentTolerance],
+        });
+
+        setSimplifiedData1((prevState: any) => ({
+          ...prevState,
+          [currentTolerance]: res1.data,
+        }));
+      }
+
+      if (simplifiedData2) {
+        const res2 = await axios.post("http://localhost:5000/api/unite", {
+          geojson: simplifiedData2[currentTolerance],
+        });
+
+        setSimplifiedData2((prevState: any) => ({
+          ...prevState,
+          [currentTolerance]: res2.data,
+        }));
+      }
+    } catch (err) {
+      console.error("HIBA:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownload = async (selectedLayer: string) => {
+    let layerToDownload;
+
+    if (selectedLayer === "layer0") {
+      layerToDownload = data;
+    } else if (selectedLayer === "layer1") {
+      layerToDownload = simplifiedData1[currentTolerance];
+    } else {
+      layerToDownload = simplifiedData2[currentTolerance];
+    }
+
+    try {
+      const response = await axios.post(
+        "http://localhost:5000/api/download_shapefile",
+        layerToDownload,
+        {
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([response.data], { type: "application/zip" });
+      const link = document.createElement("a");
+      link.href = window.URL.createObjectURL(blob);
+      link.download = "shapeshifter-export.zip";
+      link.click();
+      window.URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error("HIBA:", error);
+    }
+  };
+
   const onEachFeature = (feature: any, layer: L.Layer) => {
     if (feature.properties && attributesEnabled) {
       const tooltipContent = Object.entries(feature.properties)
@@ -247,7 +310,6 @@ export default function App() {
   return (
     <>
       <Header
-        data={data}
         setFileUploaded={setFileUploaded}
         onDataUpload={handleDataUpload}
         onResetData={resetData}
@@ -255,10 +317,14 @@ export default function App() {
         onToggleAttributes={toggleAttributes}
         onSimplify={handleSimplify}
         onToggleSimplification={toggleSimplification}
+        onUnite={handleUnite}
+        onDownload={handleDownload}
         fileUploaded={fileUploaded}
         attributesEnabled={attributesEnabled}
         worldmapEnabled={worldMapEnabled}
         loading={loading}
+        selectedAlgorithm1={selectedAlgorithm1}
+        selectedAlgorithm2={selectedAlgorithm2}
       />
 
       {!data && !simplifiedData1 ? (

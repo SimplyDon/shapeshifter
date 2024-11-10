@@ -16,6 +16,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import PentagonIcon from "@mui/icons-material/Pentagon";
 import HexagonIcon from "@mui/icons-material/Hexagon";
 import DataObjectIcon from "@mui/icons-material/DataObject";
+import ExtensionIcon from "@mui/icons-material/Extension";
 import Stack from "@mui/material/Stack";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
@@ -35,6 +36,8 @@ import FormControl from "@mui/material/FormControl";
 import FormGroup from "@mui/material/FormGroup";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
+import RadioGroup from "@mui/material/RadioGroup";
+import Radio from "@mui/material/Radio";
 
 declare module "@mui/material/styles" {
   interface CustomPalette {
@@ -43,6 +46,7 @@ declare module "@mui/material/styles" {
     gray: PaletteColorOptions;
     brown: PaletteColorOptions;
     yellow: PaletteColorOptions;
+    purple: PaletteColorOptions;
   }
   interface Palette extends CustomPalette {}
   interface PaletteOptions extends CustomPalette {}
@@ -55,6 +59,7 @@ declare module "@mui/material/Button" {
     gray: true;
     brown: true;
     yellow: true;
+    purple: true;
   }
 }
 
@@ -69,11 +74,11 @@ const theme = createTheme({
     gray: createColor("#5c677d"),
     brown: createColor("#c38e70"),
     yellow: createColor("#e9d8a6"),
+    purple: createColor("#b56576"),
   },
 });
 
 interface HeaderProps {
-  data: () => void;
   setFileUploaded: React.Dispatch<React.SetStateAction<boolean>>;
   onDataUpload: (data: any) => void;
   onResetData: () => void;
@@ -84,10 +89,14 @@ interface HeaderProps {
     availableTolerances: number[],
     algorithms: string[]
   ) => void;
+  onUnite: () => void;
+  onDownload: (selectedLayer: string) => void;
   fileUploaded: boolean;
   attributesEnabled: boolean;
   worldmapEnabled: boolean;
   loading: boolean;
+  selectedAlgorithm1: string;
+  selectedAlgorithm2: string;
 }
 
 const VisuallyHiddenInput = styled("input")({
@@ -174,7 +183,6 @@ const availableTolerances: Tolerance[] = [
 ];
 
 const Header: React.FC<HeaderProps> = ({
-  data,
   setFileUploaded,
   onDataUpload,
   onResetData,
@@ -182,15 +190,21 @@ const Header: React.FC<HeaderProps> = ({
   onToggleAttributes,
   onSimplify,
   onToggleSimplification,
+  onUnite,
+  onDownload,
   fileUploaded,
   attributesEnabled,
   worldmapEnabled,
   loading,
+  selectedAlgorithm1,
+  selectedAlgorithm2,
 }: HeaderProps) => {
   const [errorSnackbarOpen, setErrorSnackbarOpen] = useState<boolean>(false);
   const [warningSnackbarOpen, setWarningSnackbarOpen] =
     useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState<boolean>(false);
+  const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
   const [simplificationEnabled, setSimplificationEnabled] =
     useState<boolean>(false);
   const [simplificationDialogOpen, setSimplificationDialogOpen] =
@@ -204,7 +218,9 @@ const Header: React.FC<HeaderProps> = ({
   const [numberOfSelectedAlgorithms, setNumberOfSelectedAlgorithms] =
     useState<number>(0);
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSimplificationDialogChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     setAlgorithms({
       ...algorithms,
       [event.target.name]: event.target.checked,
@@ -284,8 +300,10 @@ const Header: React.FC<HeaderProps> = ({
   const handleSimplify = (algorithms: string[]) => {
     setSimplificationEnabled((prev: boolean) => !prev);
 
+    // Disabling simplification
     if (simplificationEnabled) {
       onSimplify(-1);
+      setNumberOfSelectedAlgorithms(0);
       return;
     }
 
@@ -293,28 +311,6 @@ const Header: React.FC<HeaderProps> = ({
       availableTolerances.map((t) => t.value),
       algorithms
     );
-  };
-
-  const handleDownload = async () => {
-    try {
-      const response = await axios.post(
-        "http://localhost:5000/api/download_shapefile",
-        { geojson: data },
-        {
-          responseType: "blob",
-        }
-      );
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", "export.shp");
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      console.error("HIBA:", error);
-    }
   };
 
   const handleSimplificationDialog = () => {
@@ -326,7 +322,7 @@ const Header: React.FC<HeaderProps> = ({
     setSimplificationDialogOpen(true);
   };
 
-  const handleClose = () => {
+  const handleSimplificationDialogClose = () => {
     setSimplificationDialogOpen(false);
     setAlgorithms(
       options.reduce((acc: any, option: any) => {
@@ -336,7 +332,7 @@ const Header: React.FC<HeaderProps> = ({
     );
   };
 
-  const handleSubmit = () => {
+  const handleSimplificationDialogSubmit = () => {
     setSimplificationDialogOpen(false);
     setAlgorithms(
       options.reduce((acc: any, option: any) => {
@@ -351,6 +347,27 @@ const Header: React.FC<HeaderProps> = ({
 
     setNumberOfSelectedAlgorithms(selectedValues.length);
     handleSimplify(selectedValues);
+  };
+
+  const handleDownloadDialogOpen = () => {
+    setDownloadDialogOpen(true);
+  };
+
+  const handleDownloadDialogClose = () => {
+    setSelectedLayer(null);
+    setDownloadDialogOpen(false);
+  };
+
+  const handleOptionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedLayer(event.target.value);
+  };
+
+  const handleDownloadDialogSubmit = () => {
+    if (selectedLayer) {
+      onDownload(selectedLayer);
+    }
+
+    handleDownloadDialogClose();
   };
 
   return (
@@ -387,7 +404,7 @@ const Header: React.FC<HeaderProps> = ({
                     startIcon={<CloudDownloadIcon />}
                     color="success"
                     sx={{ color: "white" }}
-                    onClick={handleDownload}
+                    onClick={handleDownloadDialogOpen}
                     disabled={loading}
                   >
                     Letöltés
@@ -454,6 +471,16 @@ const Header: React.FC<HeaderProps> = ({
                   direction="row"
                   sx={{ width: "100%", justifyContent: "flex-end" }}
                 >
+                  <Button
+                    variant="contained"
+                    startIcon={<ExtensionIcon />}
+                    color="purple"
+                    sx={{ color: "white" }}
+                    onClick={onUnite}
+                    disabled={loading || !simplificationEnabled}
+                  >
+                    Egyesítés
+                  </Button>
                   <Button
                     variant="contained"
                     startIcon={<PolylineIcon />}
@@ -545,7 +572,10 @@ const Header: React.FC<HeaderProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
-      <Dialog open={simplificationDialogOpen} onClose={handleClose}>
+      <Dialog
+        open={simplificationDialogOpen}
+        onClose={handleSimplificationDialogClose}
+      >
         <DialogTitle>
           Válassz <b>max. 2</b> algoritmust!
         </DialogTitle>
@@ -564,7 +594,7 @@ const Header: React.FC<HeaderProps> = ({
                   control={
                     <Checkbox
                       checked={algorithms[option.name]}
-                      onChange={handleChange}
+                      onChange={handleSimplificationDialogChange}
                       name={option.name}
                       disabled={option.disabled}
                     />
@@ -591,16 +621,64 @@ const Header: React.FC<HeaderProps> = ({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose} color="primary">
+          <Button onClick={handleSimplificationDialogClose} color="primary">
             Mégsem
           </Button>
           <Button
             variant="contained"
             color="success"
-            onClick={handleSubmit}
+            onClick={handleSimplificationDialogSubmit}
             disabled={simplificationDialogError}
           >
             Futtatás
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={downloadDialogOpen} onClose={handleDownloadDialogClose}>
+        <DialogTitle>Válassz egy réteget!</DialogTitle>
+        <DialogContent>
+          <FormControl component="fieldset">
+            <RadioGroup value={selectedLayer} onChange={handleOptionChange}>
+              <FormControlLabel
+                value="layer0"
+                control={<Radio />}
+                label="Eredeti réteg 🟩"
+              />
+
+              {numberOfSelectedAlgorithms > 0 && (
+                <FormControlLabel
+                  value="layer1"
+                  control={<Radio />}
+                  label={selectedAlgorithm1}
+                />
+              )}
+
+              {numberOfSelectedAlgorithms > 1 && (
+                <FormControlLabel
+                  value="layer2"
+                  control={<Radio />}
+                  label={selectedAlgorithm2}
+                />
+              )}
+            </RadioGroup>
+          </FormControl>
+          <br />
+          <br />
+          <Alert severity="info">
+            Egyszerűsített réteg az aktuális toleranciával kerül letöltésre.
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDownloadDialogClose} color="primary">
+            Mégsem
+          </Button>
+          <Button
+            onClick={handleDownloadDialogSubmit}
+            color="success"
+            variant="contained"
+            disabled={!selectedLayer}
+          >
+            Letöltés
           </Button>
         </DialogActions>
       </Dialog>

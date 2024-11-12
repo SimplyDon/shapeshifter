@@ -1,6 +1,7 @@
 from shapely.geometry import LineString, Polygon, MultiPolygon
 from simplification.utils import triangle_area
 
+
 def visvalingam_whyatt(coords, tolerance):
     if len(coords) < 3:
         return coords
@@ -11,10 +12,10 @@ def visvalingam_whyatt(coords, tolerance):
         areas.append((area, i))
 
     min_area, min_idx = min(areas, key=lambda x: x[0])
-    
+
     if min_area >= tolerance:
         return coords
-    
+
     coords = coords[:min_idx] + coords[min_idx + 1:]
 
     return visvalingam_whyatt(coords, tolerance)
@@ -22,13 +23,13 @@ def visvalingam_whyatt(coords, tolerance):
 
 def simplify_geometries_vw(gdf, tolerance):
     simplified_geometries = []
-    
+
     for geom in gdf.geometry:
         if geom.geom_type == 'LineString':
             coords = list(geom.coords)
             simplified_coords = visvalingam_whyatt(coords, tolerance)
             simplified_geometries.append(LineString(simplified_coords))
-        
+
         elif geom.geom_type == 'Polygon':
             exterior_coords = list(geom.exterior.coords)
             simplified_exterior = visvalingam_whyatt(exterior_coords, tolerance)
@@ -45,13 +46,13 @@ def simplify_geometries_vw(gdf, tolerance):
                     simplified_interiors.append(LineString(simplified_interior))
 
             simplified_geometries.append(Polygon(simplified_exterior, simplified_interiors))
-        
+
         elif geom.geom_type == 'MultiPolygon':
             simplified_polys = []
             for polygon in geom.geoms:
                 exterior_coords = list(polygon.exterior.coords)
                 simplified_exterior = visvalingam_whyatt(exterior_coords, tolerance)
-                
+
                 if len(simplified_exterior) < 4:
                     continue
 
@@ -63,12 +64,12 @@ def simplify_geometries_vw(gdf, tolerance):
                         simplified_interiors.append(LineString(simplified_interior))
 
                 simplified_polys.append(Polygon(simplified_exterior, simplified_interiors))
-            
+
             if simplified_polys:
                 simplified_geometries.append(MultiPolygon(simplified_polys))
             else:
                 simplified_geometries.append(None)
-        
+
         else:
             simplified_geometries.append(geom)
 

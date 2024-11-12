@@ -6,13 +6,14 @@ import CardMedia from "@mui/material/CardMedia";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import { motion } from "framer-motion";
+import { FeatureCollection } from "geojson";
 
 interface SampleProps {
   countryName: string;
   countryLabel: string;
   continent: string;
   imageUrl: string;
-  onLoadData: (geojsonData: any) => void;
+  onLoadData: (geojsonData: FeatureCollection) => void;
 }
 
 export default function Sample({

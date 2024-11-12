@@ -5,6 +5,7 @@ import {
   PaletteColorOptions,
 } from "@mui/material/styles";
 import axios from "axios";
+import { FeatureCollection } from "geojson";
 import { motion } from "framer-motion";
 import "./styles.scss";
 import { styled } from "@mui/material/styles";
@@ -65,7 +66,7 @@ declare module "@mui/material/Button" {
 
 const { palette } = createTheme();
 const { augmentColor } = palette;
-const createColor = (mainColor: any) =>
+const createColor = (mainColor: string) =>
   augmentColor({ color: { main: mainColor } });
 const theme = createTheme({
   palette: {
@@ -80,7 +81,7 @@ const theme = createTheme({
 
 interface HeaderProps {
   setFileUploaded: React.Dispatch<React.SetStateAction<boolean>>;
-  onDataUpload: (data: any) => void;
+  onDataUpload: (data: FeatureCollection) => void;
   onResetData: () => void;
   onToggleWorldMap: () => void;
   onToggleAttributes: () => void;
@@ -119,7 +120,7 @@ interface Option {
 const options: Option[] = [
   { name: "Ramer-Douglas-Peucker (beépített)", disabled: false },
   { name: "Ramer-Douglas-Peucker (implementált)", disabled: false },
-  { name: "Ramer-Douglas-Peucker (továbbfejlesztett)", disabled: true },
+  { name: "Ramer-Douglas-Peucker (továbbfejlesztett)", disabled: false },
   { name: "Reumann-Witkam", disabled: false },
   { name: "Visvaligam-Whyatt", disabled: false },
   { name: "Merőleges távolság", disabled: false },
@@ -210,7 +211,7 @@ const Header: React.FC<HeaderProps> = ({
   const [simplificationDialogOpen, setSimplificationDialogOpen] =
     useState<boolean>(false);
   const [algorithms, setAlgorithms] = useState<Record<string, boolean>>(
-    options.reduce((acc: any, option: any) => {
+    options.reduce((acc: Record<string, boolean>, option: Option) => {
       acc[option.name] = false;
       return acc;
     }, {} as Record<string, boolean>)
@@ -325,7 +326,7 @@ const Header: React.FC<HeaderProps> = ({
   const handleSimplificationDialogClose = () => {
     setSimplificationDialogOpen(false);
     setAlgorithms(
-      options.reduce((acc: any, option: any) => {
+      options.reduce((acc: Record<string, boolean>, option: Option) => {
         acc[option.name] = false;
         return acc;
       }, {} as Record<string, boolean>)
@@ -335,7 +336,7 @@ const Header: React.FC<HeaderProps> = ({
   const handleSimplificationDialogSubmit = () => {
     setSimplificationDialogOpen(false);
     setAlgorithms(
-      options.reduce((acc: any, option: any) => {
+      options.reduce((acc: Record<string, boolean>, option: Option) => {
         acc[option.name] = false;
         return acc;
       }, {} as Record<string, boolean>)

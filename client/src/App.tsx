@@ -21,7 +21,8 @@ import {
 import "leaflet/dist/leaflet.css";
 import Header from "./Header";
 import Sample from "./Sample";
-import L from "leaflet";
+import L, { LatLngBounds } from "leaflet";
+import { Feature, FeatureCollection } from "geojson";
 import axios from "axios";
 
 const containerVariants: Variants = {
@@ -103,11 +104,13 @@ const simplifiedMapColor1 = { color: "#db5375 ", fillColor: "#ec9192" };
 const simplifiedMapColor2 = { color: "#ffffff ", fillColor: "#eeeeee" };
 
 export default function App() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<FeatureCollection | null>(null);
   const [fileUploaded, setFileUploaded] = useState<boolean>(false);
-  const [simplifiedData1, setSimplifiedData1] = useState<any>(null);
-  const [simplifiedData2, setSimplifiedData2] = useState<any>(null);
-  const [bounds, setBounds] = useState<any>(null);
+  const [simplifiedData1, setSimplifiedData1] =
+    useState<Array<FeatureCollection> | null>(null);
+  const [simplifiedData2, setSimplifiedData2] =
+    useState<Array<FeatureCollection> | null>(null);
+  const [bounds, setBounds] = useState<LatLngBounds | null>(null);
   const [worldMapEnabled, setWorldMapEnabled] = useState<boolean>(false);
   const [attributesEnabled, setAttributesEnabled] = useState<boolean>(false);
   const [currentTolerance, setCurrentTolerance] = useState<number>(0);
@@ -117,7 +120,7 @@ export default function App() {
   const [selectedAlgorithm1, setSelectedAlgorithm1] = useState<string>("");
   const [selectedAlgorithm2, setSelectedAlgorithm2] = useState<string>("");
 
-  const handleDataUpload = (uploadedData: any) => {
+  const handleDataUpload = (uploadedData: FeatureCollection) => {
     setWorldMapEnabled(false);
     setAttributesEnabled(false);
 
@@ -189,7 +192,7 @@ export default function App() {
     }
   };
 
-  const handleLoadDataFromSample = (geojsonData: any) => {
+  const handleLoadDataFromSample = (geojsonData: FeatureCollection) => {
     setData(geojsonData);
     setFileUploaded(true);
     setWorldMapEnabled(false);
@@ -228,8 +231,8 @@ export default function App() {
           geojson: simplifiedData1[currentTolerance],
         });
 
-        setSimplifiedData1((prevState: any) => ({
-          ...prevState,
+        setSimplifiedData1((prevState: Array<FeatureCollection> | null) => ({
+          ...(prevState || []),
           [currentTolerance]: res1.data,
         }));
       }
@@ -239,8 +242,8 @@ export default function App() {
           geojson: simplifiedData2[currentTolerance],
         });
 
-        setSimplifiedData2((prevState: any) => ({
-          ...prevState,
+        setSimplifiedData2((prevState: Array<FeatureCollection> | null) => ({
+          ...(prevState || []),
           [currentTolerance]: res2.data,
         }));
       }
@@ -255,11 +258,11 @@ export default function App() {
     let layerToDownload;
 
     if (selectedLayer === "layer0") {
-      layerToDownload = data;
-    } else if (selectedLayer === "layer1") {
-      layerToDownload = simplifiedData1[currentTolerance];
-    } else {
-      layerToDownload = simplifiedData2[currentTolerance];
+      layerToDownload = data as FeatureCollection;
+    } else if (selectedLayer === "layer1" && simplifiedData1) {
+      layerToDownload = simplifiedData1[currentTolerance] as FeatureCollection;
+    } else if (selectedLayer === "layer2" && simplifiedData2) {
+      layerToDownload = simplifiedData2[currentTolerance] as FeatureCollection;
     }
 
     try {
@@ -282,10 +285,12 @@ export default function App() {
     }
   };
 
-  const onEachFeature = (feature: any, layer: L.Layer) => {
+  const onEachFeature = (feature: Feature, layer: L.Layer) => {
     if (feature.properties && attributesEnabled) {
       const tooltipContent = Object.entries(feature.properties)
-        .map(([key, value]: any) => `<strong>${key}:</strong> ${value}`)
+        .map(
+          ([key, value]: Array<string>) => `<strong>${key}:</strong> ${value}`
+        )
         .join("<br>");
 
       layer.bindTooltip(tooltipContent, {
@@ -401,7 +406,7 @@ export default function App() {
         </Container>
       ) : worldMapEnabled ? (
         <>
-          <MapContainer bounds={bounds}>
+          <MapContainer bounds={bounds as LatLngBounds}>
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
@@ -411,7 +416,7 @@ export default function App() {
               <LayersControl.Overlay checked name="Eredeti réteg 🟩">
                 <GeoJSON
                   key={`${JSON.stringify(data)}-${attributesEnabled}`}
-                  data={data}
+                  data={data as FeatureCollection}
                   onEachFeature={onEachFeature}
                   pathOptions={mapColor}
                 />
@@ -444,13 +449,13 @@ export default function App() {
           </MapContainer>
         </>
       ) : (
-        <MapContainer bounds={bounds}>
+        <MapContainer bounds={bounds as LatLngBounds}>
           <SetViewOnClick />
           <LayersControl position="bottomright">
             <LayersControl.Overlay checked name="Eredeti réteg 🟩">
               <GeoJSON
                 key={`${JSON.stringify(data)}-${attributesEnabled}`}
-                data={data}
+                data={data as FeatureCollection}
                 onEachFeature={onEachFeature}
                 pathOptions={mapColor}
               />

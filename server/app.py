@@ -1,4 +1,5 @@
 from simplification.douglas import simplify_geometries_rdp
+from simplification.douglas_improved import simplify_geometries_rdp_improved
 from simplification.visvalingam import simplify_geometries_vw
 from simplification.reumann import simplify_geometries_rw
 from simplification.perpendicular_distance import simplify_geometries_pd
@@ -14,9 +15,15 @@ import zipfile
 import json
 import math
 import topojson as tp
+import numpy as np
 
 app = Flask(__name__)
 cors = CORS(app, origins="*")
+
+ZIP_FOLDER = "./samples"
+ANGLE_THRESHOLD = np.radians(60)
+DISTANCE_THRESHOLD = 10.0
+
 
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
@@ -82,6 +89,8 @@ def simplify_shape():
                     simplified_gdf = simplify_geometries_rdp(gdf, tolerance)
                 elif algorithm == "Ramer-Douglas-Peucker (beépített)":
                     simplified_gdf = gdf.simplify(tolerance=tolerance)
+                elif algorithm == "Ramer-Douglas-Peucker (továbbfejlesztett)":
+                    simplified_gdf = simplify_geometries_rdp_improved(gdf, ANGLE_THRESHOLD, DISTANCE_THRESHOLD, tolerance=tolerance)
                 elif algorithm == "Visvaligam-Whyatt":
                     simplified_gdf = simplify_geometries_vw(gdf, tolerance/10)
                 elif algorithm == "Reumann-Witkam":
@@ -145,8 +154,6 @@ def download_shapefile():
     except Exception as e:
         return jsonify({"hiba": str(e)}), 400
 
-
-ZIP_FOLDER = "./samples"
 
 @app.route('/api/load_country/<country_name>', methods=['GET'])
 def load_country_shapefile(country_name):

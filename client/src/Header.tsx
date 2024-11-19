@@ -11,7 +11,10 @@ import "./styles.scss";
 import { styled } from "@mui/material/styles";
 import Button from "@mui/material/Button";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
+import DownloadIcon from "@mui/icons-material/Download";
+import DoubleArrowIcon from "@mui/icons-material/DoubleArrow";
+import SpeedIcon from "@mui/icons-material/Speed";
+import FitScreenIcon from "@mui/icons-material/FitScreen";
 import Slider from "@mui/material/Slider";
 import LinearProgress from "@mui/material/LinearProgress";
 import PentagonIcon from "@mui/icons-material/Pentagon";
@@ -48,6 +51,8 @@ declare module "@mui/material/styles" {
     brown: PaletteColorOptions;
     yellow: PaletteColorOptions;
     purple: PaletteColorOptions;
+    blue: PaletteColorOptions;
+    pink: PaletteColorOptions;
   }
   interface Palette extends CustomPalette {}
   interface PaletteOptions extends CustomPalette {}
@@ -61,6 +66,8 @@ declare module "@mui/material/Button" {
     brown: true;
     yellow: true;
     purple: true;
+    blue: true;
+    pink: true;
   }
 }
 
@@ -76,6 +83,8 @@ const theme = createTheme({
     brown: createColor("#c38e70"),
     yellow: createColor("#e9d8a6"),
     purple: createColor("#b56576"),
+    blue: createColor("#1976d2"),
+    pink: createColor("#e27396"),
   },
 });
 
@@ -85,6 +94,7 @@ interface HeaderProps {
   onResetData: () => void;
   onToggleWorldMap: () => void;
   onToggleAttributes: () => void;
+  onCenterMap: () => void;
   onSimplify: (tolerance: number) => void;
   onToggleSimplification: (
     availableTolerances: number[],
@@ -98,6 +108,8 @@ interface HeaderProps {
   loading: boolean;
   selectedAlgorithm1: string;
   selectedAlgorithm2: string;
+  footerOpen: boolean;
+  setFooterOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const VisuallyHiddenInput = styled("input")({
@@ -121,13 +133,14 @@ const options: Option[] = [
   { name: "Ramer-Douglas-Peucker (beépített)", disabled: false },
   { name: "Ramer-Douglas-Peucker (implementált)", disabled: false },
   { name: "Ramer-Douglas-Peucker (továbbfejlesztett)", disabled: false },
-  { name: "Reumann-Witkam", disabled: false },
   { name: "Visvaligam-Whyatt", disabled: false },
+  { name: "Visvaligam-Whyatt (továbbfejlesztett)", disabled: true },
+  { name: "Reumann-Witkam", disabled: false },
   { name: "Merőleges távolság", disabled: false },
   { name: "Sugárirányú távolság", disabled: false },
   { name: "N-edik pont", disabled: false },
   { name: "Zhao-Saalfeld", disabled: true },
-  { name: "Lang", disabled: true },
+  { name: "Lang", disabled: false },
   { name: "Opheim", disabled: true },
 ];
 
@@ -189,6 +202,7 @@ const Header: React.FC<HeaderProps> = ({
   onResetData,
   onToggleWorldMap,
   onToggleAttributes,
+  onCenterMap,
   onSimplify,
   onToggleSimplification,
   onUnite,
@@ -199,6 +213,8 @@ const Header: React.FC<HeaderProps> = ({
   loading,
   selectedAlgorithm1,
   selectedAlgorithm2,
+  footerOpen,
+  setFooterOpen,
 }: HeaderProps) => {
   const [errorSnackbarOpen, setErrorSnackbarOpen] = useState<boolean>(false);
   const [warningSnackbarOpen, setWarningSnackbarOpen] =
@@ -231,7 +247,7 @@ const Header: React.FC<HeaderProps> = ({
   const selectedItems: number =
     Object.values(algorithms).filter(Boolean).length;
 
-  const simplificationDialogWarning: boolean = selectedItems == 2;
+  const simplificationDialogWarning: boolean = selectedItems > 1;
 
   const simplificationDialogError: boolean =
     selectedItems > 2 || selectedItems == 0;
@@ -402,13 +418,22 @@ const Header: React.FC<HeaderProps> = ({
                 >
                   <Button
                     variant="contained"
-                    startIcon={<CloudDownloadIcon />}
+                    startIcon={<DownloadIcon />}
                     color="success"
                     sx={{ color: "white" }}
                     onClick={handleDownloadDialogOpen}
                     disabled={loading}
                   >
                     Letöltés
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<FitScreenIcon />}
+                    color="blue"
+                    sx={{ color: "white" }}
+                    onClick={onCenterMap}
+                  >
+                    Igazítás
                   </Button>
                   <Button
                     variant={worldmapEnabled ? "contained" : "outlined"}
@@ -481,6 +506,16 @@ const Header: React.FC<HeaderProps> = ({
                     disabled={loading || !simplificationEnabled}
                   >
                     Egyesítés
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<SpeedIcon />}
+                    color="pink"
+                    sx={{ color: "white" }}
+                    onClick={() => setFooterOpen(!footerOpen)}
+                    disabled={loading || !simplificationEnabled}
+                  >
+                    Metrikák
                   </Button>
                   <Button
                     variant="contained"
@@ -567,6 +602,7 @@ const Header: React.FC<HeaderProps> = ({
             onClick={deleteFile}
             autoFocus
             color="error"
+            endIcon={<DeleteIcon />}
             variant="contained"
           >
             Törlés
@@ -628,6 +664,7 @@ const Header: React.FC<HeaderProps> = ({
           <Button
             variant="contained"
             color="success"
+            endIcon={<DoubleArrowIcon />}
             onClick={handleSimplificationDialogSubmit}
             disabled={simplificationDialogError}
           >
@@ -676,6 +713,7 @@ const Header: React.FC<HeaderProps> = ({
           <Button
             onClick={handleDownloadDialogSubmit}
             color="success"
+            endIcon={<DownloadIcon />}
             variant="contained"
             disabled={!selectedLayer}
           >

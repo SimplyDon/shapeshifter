@@ -20,8 +20,9 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import Header from "./Header";
+import Footer from "./Footer";
 import Sample from "./Sample";
-import L, { LatLngBounds } from "leaflet";
+import L, { LatLngBoundsExpression } from "leaflet";
 import { Feature, FeatureCollection } from "geojson";
 import axios from "axios";
 
@@ -105,12 +106,13 @@ const simplifiedMapColor2 = { color: "#ffffff ", fillColor: "#eeeeee" };
 
 export default function App() {
   const [data, setData] = useState<FeatureCollection | null>(null);
+  const [map, setMap] = useState<L.Map | null>(null);
   const [fileUploaded, setFileUploaded] = useState<boolean>(false);
   const [simplifiedData1, setSimplifiedData1] =
     useState<Array<FeatureCollection> | null>(null);
   const [simplifiedData2, setSimplifiedData2] =
     useState<Array<FeatureCollection> | null>(null);
-  const [bounds, setBounds] = useState<LatLngBounds | null>(null);
+  const [bounds, setBounds] = useState<LatLngBoundsExpression | null>(null);
   const [worldMapEnabled, setWorldMapEnabled] = useState<boolean>(false);
   const [attributesEnabled, setAttributesEnabled] = useState<boolean>(false);
   const [currentTolerance, setCurrentTolerance] = useState<number>(0);
@@ -119,10 +121,17 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedAlgorithm1, setSelectedAlgorithm1] = useState<string>("");
   const [selectedAlgorithm2, setSelectedAlgorithm2] = useState<string>("");
+  const [footerOpen, setFooterOpen] = useState<boolean>(false);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [pointCounts, setPointCounts] = useState<{
+    original: number;
+    simplified: Record<string, Record<number, number>>;
+  } | null>(null);
 
   const handleDataUpload = (uploadedData: FeatureCollection) => {
     setWorldMapEnabled(false);
     setAttributesEnabled(false);
+    setFooterOpen(false);
 
     setData(uploadedData);
 
@@ -132,12 +141,19 @@ export default function App() {
     setBounds(geojsonBounds);
   };
 
+  function centerMap() {
+    if (bounds && map) {
+      map.fitBounds(bounds);
+    }
+  }
+
   const resetData = () => {
     setData(null);
     setSimplifiedData1(null);
     setSimplifiedData2(null);
     setBounds(null);
     setCurrentTolerance(0);
+    setFooterOpen(false);
   };
 
   const toggleWorldMap = () => {
@@ -149,10 +165,14 @@ export default function App() {
   };
 
   const handleSimplify = async (tolerance: number) => {
+    // Disabling simplification
     if (tolerance === -1) {
       setCurrentTolerance(0);
       setSimplifiedData1(null);
       setSimplifiedData2(null);
+      setSelectedAlgorithm1("");
+      setSelectedAlgorithm2("");
+      setFooterOpen(false);
       return;
     }
 
@@ -173,11 +193,14 @@ export default function App() {
       });
 
       if (algorithms.length === 1) {
-        setSimplifiedData1(res.data[algorithms[0]]);
+        setSimplifiedData1(res.data.simplifiedData[algorithms[0]]);
       } else if (algorithms.length === 2) {
-        setSimplifiedData1(res.data[algorithms[0]]);
-        setSimplifiedData2(res.data[algorithms[1]]);
+        setSimplifiedData1(res.data.simplifiedData[algorithms[0]]);
+        setSimplifiedData2(res.data.simplifiedData[algorithms[1]]);
       }
+
+      setElapsedTime(res.data.elapsedTime);
+      setPointCounts(res.data.pointCounts);
     } catch (err) {
       console.error("HIBA:", err);
     } finally {
@@ -189,19 +212,33 @@ export default function App() {
       }
 
       setLoading(false);
+      setFooterOpen(true);
     }
   };
 
-  const handleLoadDataFromSample = (geojsonData: FeatureCollection) => {
-    setData(geojsonData);
-    setFileUploaded(true);
-    setWorldMapEnabled(false);
-    setAttributesEnabled(false);
+  const handleLoadDataFromSample = async (countryLabel: string) => {
+    setLoading(true);
 
-    const geojsonLayer = L.geoJSON(geojsonData);
-    const geojsonBounds = geojsonLayer.getBounds();
+    try {
+      const response = await axios.get(
+        `http://localhost:5000/api/load_country/${countryLabel}`
+      );
 
-    setBounds(geojsonBounds);
+      setData(response.data);
+      setFileUploaded(true);
+      setWorldMapEnabled(false);
+      setAttributesEnabled(false);
+      setFooterOpen(false);
+
+      const geojsonLayer = L.geoJSON(response.data);
+      const geojsonBounds = geojsonLayer.getBounds();
+
+      setBounds(geojsonBounds);
+    } catch (error) {
+      console.error("HIBA: ", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -320,6 +357,7 @@ export default function App() {
         onResetData={resetData}
         onToggleWorldMap={toggleWorldMap}
         onToggleAttributes={toggleAttributes}
+        onCenterMap={centerMap}
         onSimplify={handleSimplify}
         onToggleSimplification={toggleSimplification}
         onUnite={handleUnite}
@@ -328,6 +366,17 @@ export default function App() {
         attributesEnabled={attributesEnabled}
         worldmapEnabled={worldMapEnabled}
         loading={loading}
+        selectedAlgorithm1={selectedAlgorithm1}
+        selectedAlgorithm2={selectedAlgorithm2}
+        footerOpen={footerOpen}
+        setFooterOpen={setFooterOpen}
+      />
+
+      <Footer
+        drawerOpen={footerOpen}
+        elapsedTime={elapsedTime}
+        pointCounts={pointCounts}
+        currentTolerance={currentTolerance}
         selectedAlgorithm1={selectedAlgorithm1}
         selectedAlgorithm2={selectedAlgorithm2}
       />
@@ -360,7 +409,8 @@ export default function App() {
                       countryLabel={item.label}
                       continent={item.continent}
                       imageUrl={item.imageUrl}
-                      onLoadData={handleLoadDataFromSample}
+                      loading={loading}
+                      onCountryLoad={handleLoadDataFromSample}
                     />
                   </motion.div>
                 </Grid>
@@ -404,15 +454,17 @@ export default function App() {
             </Grid>
           </Grid>
         </Container>
-      ) : worldMapEnabled ? (
+      ) : (
         <>
-          <MapContainer bounds={bounds as LatLngBounds}>
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-            />
+          <MapContainer bounds={bounds as LatLngBoundsExpression} ref={setMap}>
+            {worldMapEnabled && (
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+              />
+            )}
             <SetViewOnClick />
-            <LayersControl position="bottomright">
+            <LayersControl position="topright">
               <LayersControl.Overlay checked name="Eredeti réteg 🟩">
                 <GeoJSON
                   key={`${JSON.stringify(data)}-${attributesEnabled}`}
@@ -448,44 +500,6 @@ export default function App() {
             </LayersControl>
           </MapContainer>
         </>
-      ) : (
-        <MapContainer bounds={bounds as LatLngBounds}>
-          <SetViewOnClick />
-          <LayersControl position="bottomright">
-            <LayersControl.Overlay checked name="Eredeti réteg 🟩">
-              <GeoJSON
-                key={`${JSON.stringify(data)}-${attributesEnabled}`}
-                data={data as FeatureCollection}
-                onEachFeature={onEachFeature}
-                pathOptions={mapColor}
-              />
-            </LayersControl.Overlay>
-            {simplifiedData1 && (
-              <LayersControl.Overlay checked name={selectedAlgorithm1}>
-                <GeoJSON
-                  key={`${JSON.stringify(
-                    simplifiedData1[currentTolerance]
-                  )}-${attributesEnabled}`}
-                  data={simplifiedData1[currentTolerance]}
-                  onEachFeature={onEachFeature}
-                  pathOptions={simplifiedMapColor1}
-                />
-              </LayersControl.Overlay>
-            )}
-            {simplifiedData2 && (
-              <LayersControl.Overlay checked name={selectedAlgorithm2}>
-                <GeoJSON
-                  key={`${JSON.stringify(
-                    simplifiedData2[currentTolerance]
-                  )}-${attributesEnabled}`}
-                  data={simplifiedData2[currentTolerance]}
-                  onEachFeature={onEachFeature}
-                  pathOptions={simplifiedMapColor2}
-                />
-              </LayersControl.Overlay>
-            )}
-          </LayersControl>
-        </MapContainer>
       )}
       <Dialog open={infoDialogOpen} onClose={handleInfoDialogClose}>
         <DialogTitle>{"Szükséges komponensek"}</DialogTitle>

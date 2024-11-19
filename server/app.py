@@ -1,3 +1,4 @@
+from simplification.utils import count_vertices
 from simplification.douglas import simplify_geometries_rdp
 from simplification.douglas_improved import simplify_geometries_rdp_improved
 from simplification.visvalingam import simplify_geometries_vw
@@ -5,11 +6,13 @@ from simplification.reumann import simplify_geometries_rw
 from simplification.perpendicular_distance import simplify_geometries_pd
 from simplification.radial_distance import simplify_geometries_rd
 from simplification.nth_point import simplify_geometries_nth_point
+from simplification.lang import simplify_geometries_lang
 from flask import Flask, request, jsonify, send_file
 import geopandas as gpd
 from flask_cors import CORS
 import os
 import io
+import time
 import tempfile
 import zipfile
 import json
@@ -72,6 +75,8 @@ def upload_file():
 @app.route('/api/simplify', methods=['POST'])
 def simplify_shape():
     try:
+        start_time = time.time()
+
         data = request.get_json()
         geojson = data['geojson']
         tolerances = data['tolerances']
@@ -79,7 +84,10 @@ def simplify_shape():
 
         gdf = gpd.GeoDataFrame.from_features(geojson['features'])
 
+        original_point_count = count_vertices(gdf)
+
         simplified_geojsons = {algorithm: {} for algorithm in algorithms}
+        simplified_point_counts = {algorithm: {} for algorithm in algorithms}
 
         for algorithm in algorithms:
             for tolerance in tolerances:
@@ -101,11 +109,25 @@ def simplify_shape():
                     simplified_gdf = simplify_geometries_rd(gdf, tolerance)
                 elif algorithm == "N-edik pont":
                     simplified_gdf = simplify_geometries_nth_point(gdf, math.ceil(tolerance * 10))
+                elif algorithm == "Lang":
+                    simplified_gdf = simplify_geometries_lang(gdf, tolerance, lookahead=4)
 
                 geojson_data = simplified_gdf.to_json()
-                simplified_geojsons[algorithm][tolerance] = json.loads(geojson_data)
 
-        return jsonify(simplified_geojsons)
+                simplified_geojsons[algorithm][tolerance] = json.loads(geojson_data)
+                simplified_point_counts[algorithm][tolerance] = count_vertices(simplified_gdf)
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+
+        return jsonify({
+            "simplifiedData": simplified_geojsons,
+            "pointCounts": {
+                "original": original_point_count,
+                "simplified": simplified_point_counts
+            },
+            "elapsedTime": elapsed_time
+        })
 
     except Exception as e:
         return jsonify({"hiba": str(e)}), 400

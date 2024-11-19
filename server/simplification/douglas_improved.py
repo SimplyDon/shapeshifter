@@ -1,21 +1,7 @@
 from shapely.geometry import LineString, Polygon, MultiPolygon
 from simplification.douglas import douglas_peucker
+from simplification.utils import calculate_angle
 import numpy as np
-
-
-def calculate_angle(p1, p2, p3):
-    v1 = np.array(p1) - np.array(p2)
-    v2 = np.array(p3) - np.array(p2)
-    dot_product = np.dot(v1, v2)
-    norm_v1 = np.linalg.norm(v1)
-    norm_v2 = np.linalg.norm(v2)
-
-    if norm_v1 == 0 or norm_v2 == 0:
-        return np.pi  # Pi = 180 degrees (straight line)
-
-    cos_angle = dot_product / (norm_v1 * norm_v2)
-
-    return np.arccos(np.clip(cos_angle, -1.0, 1.0))
 
 
 def select_segment_points(coords, angle_threshold, distance_threshold):

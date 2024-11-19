@@ -1,19 +1,19 @@
-import axios from "axios";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
-import Button from "@mui/material/Button";
+import LoadingButton from "@mui/lab/LoadingButton";
+import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import Typography from "@mui/material/Typography";
 import { motion } from "framer-motion";
-import { FeatureCollection } from "geojson";
 
 interface SampleProps {
   countryName: string;
   countryLabel: string;
   continent: string;
   imageUrl: string;
-  onLoadData: (geojsonData: FeatureCollection) => void;
+  loading: boolean;
+  onCountryLoad: (countryLabel: string) => void;
 }
 
 export default function Sample({
@@ -21,19 +21,9 @@ export default function Sample({
   countryLabel,
   continent,
   imageUrl,
-  onLoadData,
+  loading,
+  onCountryLoad,
 }: SampleProps) {
-  const handleClick = async () => {
-    try {
-      const response = await axios.get(
-        `http://localhost:5000/api/load_country/${countryLabel}`
-      );
-      onLoadData(response.data);
-    } catch (error) {
-      console.error("HIBA: ", error);
-    }
-  };
-
   return (
     <motion.div whileHover={{ scale: 1.1 }}>
       <Card sx={{ width: 250 }}>
@@ -47,14 +37,17 @@ export default function Sample({
           </Typography>
         </CardContent>
         <CardActions>
-          <Button
+          <LoadingButton
             size="small"
             variant="contained"
             color="secondary"
-            onClick={handleClick}
+            loading={loading}
+            loadingPosition="start"
+            startIcon={<CloudDownloadIcon />}
+            onClick={() => onCountryLoad(countryLabel)}
           >
             Betöltés
-          </Button>
+          </LoadingButton>
         </CardActions>
       </Card>
     </motion.div>

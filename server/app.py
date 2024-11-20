@@ -9,6 +9,7 @@ from simplification.nth_point import simplify_geometries_nth_point
 from simplification.lang import simplify_geometries_lang
 from flask import Flask, request, jsonify, send_file
 import geopandas as gpd
+from concurrent.futures import ThreadPoolExecutor
 from flask_cors import CORS
 import os
 import io
@@ -89,32 +90,39 @@ def simplify_shape():
         simplified_geojsons = {algorithm: {} for algorithm in algorithms}
         simplified_point_counts = {algorithm: {} for algorithm in algorithms}
 
-        for algorithm in algorithms:
-            for tolerance in tolerances:
-                simplified_gdf = gdf.copy()
+        def simplify_task(algorithm, tolerance):
+            simplified_gdf = gdf.copy()
 
-                if algorithm == "Ramer-Douglas-Peucker (implementált)":
-                    simplified_gdf = simplify_geometries_rdp(gdf, tolerance)
-                elif algorithm == "Ramer-Douglas-Peucker (beépített)":
-                    simplified_gdf = gdf.simplify(tolerance=tolerance)
-                elif algorithm == "Ramer-Douglas-Peucker (továbbfejlesztett)":
-                    simplified_gdf = simplify_geometries_rdp_improved(gdf, ANGLE_THRESHOLD, DISTANCE_THRESHOLD, tolerance=tolerance)
-                elif algorithm == "Visvaligam-Whyatt":
-                    simplified_gdf = simplify_geometries_vw(gdf, tolerance/10)
-                elif algorithm == "Reumann-Witkam":
-                    simplified_gdf = simplify_geometries_rw(gdf, tolerance)
-                elif algorithm == "Merőleges távolság":
-                    simplified_gdf = simplify_geometries_pd(gdf, tolerance/100)
-                elif algorithm == "Sugárirányú távolság":
-                    simplified_gdf = simplify_geometries_rd(gdf, tolerance)
-                elif algorithm == "N-edik pont":
-                    simplified_gdf = simplify_geometries_nth_point(gdf, math.ceil(tolerance * 10))
-                elif algorithm == "Lang":
-                    simplified_gdf = simplify_geometries_lang(gdf, tolerance, lookahead=4)
+            if algorithm == "Ramer-Douglas-Peucker (implementált)":
+                simplified_gdf = simplify_geometries_rdp(gdf, tolerance)
+            elif algorithm == "Ramer-Douglas-Peucker (beépített)":
+                simplified_gdf = gdf.simplify(tolerance=tolerance)
+            elif algorithm == "Ramer-Douglas-Peucker (továbbfejlesztett)":
+                simplified_gdf = simplify_geometries_rdp_improved(gdf, ANGLE_THRESHOLD, DISTANCE_THRESHOLD, tolerance=tolerance)
+            elif algorithm == "Visvaligam-Whyatt":
+                simplified_gdf = simplify_geometries_vw(gdf, tolerance / 10)
+            elif algorithm == "Reumann-Witkam":
+                simplified_gdf = simplify_geometries_rw(gdf, tolerance)
+            elif algorithm == "Merőleges távolság":
+                simplified_gdf = simplify_geometries_pd(gdf, tolerance / 100)
+            elif algorithm == "Sugárirányú távolság":
+                simplified_gdf = simplify_geometries_rd(gdf, tolerance)
+            elif algorithm == "N-edik pont":
+                simplified_gdf = simplify_geometries_nth_point(gdf, math.ceil(tolerance * 10))
 
-                geojson_data = simplified_gdf.to_json()
+            geojson_data = simplified_gdf.to_json()
+            return algorithm, tolerance, json.loads(geojson_data), simplified_gdf
 
-                simplified_geojsons[algorithm][tolerance] = json.loads(geojson_data)
+        with ThreadPoolExecutor() as executor:
+            tasks = [
+                executor.submit(simplify_task, algorithm, tolerance)
+                for algorithm in algorithms
+                for tolerance in tolerances
+            ]
+
+            for future in tasks:
+                algorithm, tolerance, geojson_data, simplified_gdf = future.result()
+                simplified_geojsons[algorithm][tolerance] = geojson_data
                 simplified_point_counts[algorithm][tolerance] = count_vertices(simplified_gdf)
 
         end_time = time.time()

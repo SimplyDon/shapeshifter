@@ -3,6 +3,7 @@ import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
 import LoadingButton from "@mui/lab/LoadingButton";
+import Stack from "@mui/material/Stack";
 import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import Typography from "@mui/material/Typography";
 import { motion } from "framer-motion";
@@ -12,6 +13,7 @@ interface SampleProps {
   countryLabel: string;
   continent: string;
   imageUrl: string;
+  complexity: string;
   loading: boolean;
   onCountryLoad: (countryLabel: string) => void;
 }
@@ -21,6 +23,7 @@ export default function Sample({
   countryLabel,
   continent,
   imageUrl,
+  complexity,
   loading,
   onCountryLoad,
 }: SampleProps) {
@@ -32,9 +35,26 @@ export default function Sample({
           <Typography gutterBottom variant="h5" component="div">
             {countryName}
           </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          <Typography variant="h6" sx={{ color: "text.secondary" }}>
             {continent}
           </Typography>
+          <Stack direction="row" marginTop={1}>
+            <Typography sx={{ color: "text.secondary" }}>
+              Komplexitás:&nbsp;
+            </Typography>
+            <Typography
+              sx={{
+                color:
+                  complexity === "egyszerű"
+                    ? "green"
+                    : complexity === "közepes"
+                    ? "orange"
+                    : "red",
+              }}
+            >
+              {complexity}
+            </Typography>
+          </Stack>
         </CardContent>
         <CardActions>
           <LoadingButton

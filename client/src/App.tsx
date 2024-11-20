@@ -45,6 +45,7 @@ type Country = {
   name: string;
   label: string;
   continent: string;
+  complexity: string;
   imageUrl: string;
 };
 
@@ -60,42 +61,49 @@ const countries: Country[] = [
     name: "Magyarország",
     label: "hungary",
     continent: "Európa",
+    complexity: "egyszerű",
     imageUrl: "./src/assets/hungary.png",
   },
   {
     name: "Németország",
     label: "germany",
     continent: "Európa",
+    complexity: "közepes",
     imageUrl: "./src/assets/germany.png",
   },
   {
     name: "Egyiptom",
     label: "egypt",
     continent: "Afrika",
+    complexity: "egyszerű",
     imageUrl: "./src/assets/egypt.png",
   },
   {
     name: "Dél-Korea",
     label: "korea",
     continent: "Ázsia",
+    complexity: "közepes",
     imageUrl: "./src/assets/korea.png",
   },
   {
     name: "Egyesült Államok",
     label: "usa",
     continent: "Amerika",
+    complexity: "közepes",
     imageUrl: "./src/assets/usa.png",
   },
   {
     name: "Egyesült Királyság",
     label: "uk",
     continent: "Európa",
+    complexity: "egyszerű",
     imageUrl: "./src/assets/uk.png",
   },
   {
     name: "Finnország",
     label: "finland",
     continent: "Európa",
+    complexity: "bonyolult",
     imageUrl: "./src/assets/finland.png",
   },
 ];
@@ -408,6 +416,7 @@ export default function App() {
                       countryName={item.name}
                       countryLabel={item.label}
                       continent={item.continent}
+                      complexity={item.complexity}
                       imageUrl={item.imageUrl}
                       loading={loading}
                       onCountryLoad={handleLoadDataFromSample}

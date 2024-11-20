@@ -3,6 +3,9 @@ import Grid from "@mui/material/Grid2";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
+import SpeedIcon from "@mui/icons-material/Speed";
+import HubIcon from "@mui/icons-material/Hub";
+import SquareFootIcon from "@mui/icons-material/SquareFoot";
 
 interface FooterProps {
   drawerOpen: boolean;
@@ -24,10 +27,10 @@ const Footer: React.FC<FooterProps> = ({
   selectedAlgorithm1,
   selectedAlgorithm2,
 }: FooterProps) => {
-  let originalPointCount = 0;
-  let simplifiedPointCount1 = 0;
-  let simplifiedPointCount2 = 0;
-  let formattedText;
+  let originalPointCount: number = 0;
+  let simplifiedPointCount1: number = 0;
+  let simplifiedPointCount2: number = 0;
+  let formattedText: string = "";
 
   if (pointCounts) {
     originalPointCount = pointCounts["original"];
@@ -38,13 +41,11 @@ const Footer: React.FC<FooterProps> = ({
       simplifiedPointCount1 =
         pointCounts.simplified[selectedAlgorithm1][currentTolerance];
 
-      const percentageDecrease = Math.round(
-        (((originalPointCount - simplifiedPointCount1) /
+      const percentageDecrease: string = (
+        ((originalPointCount - simplifiedPointCount1) /
           Math.abs(originalPointCount)) *
-          100 *
-          100) /
-          100
-      );
+        100
+      ).toFixed(2);
 
       formattedText = `${originalPointCount} / ${simplifiedPointCount1} (-${percentageDecrease}%)`;
     }
@@ -55,21 +56,17 @@ const Footer: React.FC<FooterProps> = ({
       simplifiedPointCount2 =
         pointCounts.simplified[selectedAlgorithm2][currentTolerance];
 
-      const percentageDecrease1 = Math.round(
-        (((originalPointCount - simplifiedPointCount1) /
+      const percentageDecrease1: string = (
+        ((originalPointCount - simplifiedPointCount1) /
           Math.abs(originalPointCount)) *
-          100 *
-          100) /
-          100
-      );
+        100
+      ).toFixed(2);
 
-      const percentageDecrease2 = Math.round(
-        (((originalPointCount - simplifiedPointCount2) /
+      const percentageDecrease2: string = (
+        ((originalPointCount - simplifiedPointCount2) /
           Math.abs(originalPointCount)) *
-          100 *
-          100) /
-          100
-      );
+        100
+      ).toFixed(2);
 
       formattedText = `${originalPointCount} / ${simplifiedPointCount1} / ${simplifiedPointCount2}
       (-${percentageDecrease1}% / -${percentageDecrease2}%)`;
@@ -79,23 +76,50 @@ const Footer: React.FC<FooterProps> = ({
   return (
     <div>
       <Drawer open={drawerOpen} variant="persistent" anchor="bottom">
-        <Grid display="flex" direction="row" justifyContent="space-evenly">
-          {/* <Stack direction="row" spacing={2} margin={2}> */}
-          <Stack spacing={1} marginRight={3}>
-            <Typography variant="h4">Futásidő</Typography>
+        <Grid
+          container
+          display="flex"
+          direction="row"
+          justifyContent="space-evenly"
+          margin={1}
+        >
+          <Stack spacing={1} alignItems="center">
+            <Typography variant="h4">
+              <SpeedIcon />
+              &nbsp;Futásidő
+            </Typography>
             <Divider flexItem />
             <Typography variant="h5">
-              {Math.round(elapsedTime * 100) / 100} másodperc
+              {elapsedTime.toFixed(2)} másodperc
             </Typography>
           </Stack>
           <Divider orientation="vertical" variant="middle" flexItem />
-          <Stack spacing={1} marginRight={3}>
-            <Typography variant="h4">Csúcspontok száma</Typography>
+          <Stack spacing={1} alignItems="center">
+            <Typography variant="h4">
+              <HubIcon />
+              &nbsp;Csúcspontok száma
+            </Typography>
             <Divider flexItem />
             <Typography variant="h5">{formattedText}</Typography>
           </Stack>
           <Divider orientation="vertical" variant="middle" flexItem />
-          {/* </Stack> */}
+          <Stack spacing={1} alignItems="center">
+            <Typography variant="h4">
+              <SquareFootIcon />
+              &nbsp;Pozicionális hiba
+            </Typography>
+            <Divider flexItem />
+            <Typography variant="h5">0%</Typography>
+          </Stack>
+          <Divider orientation="vertical" variant="middle" flexItem />
+          <Stack spacing={1} alignItems="center">
+            <Typography variant="h4">
+              <SquareFootIcon />
+              &nbsp;TBD
+            </Typography>
+            <Divider flexItem />
+            <Typography variant="h5">0%</Typography>
+          </Stack>
         </Grid>
       </Drawer>
     </div>

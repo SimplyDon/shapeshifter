@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   createTheme,
   ThemeProvider,
@@ -10,17 +10,19 @@ import { motion } from "framer-motion";
 import "./styles.scss";
 import { styled } from "@mui/material/styles";
 import Button from "@mui/material/Button";
+import Grid from "@mui/material/Grid2";
+import Typography from "@mui/material/Typography";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import DownloadIcon from "@mui/icons-material/Download";
 import DoubleArrowIcon from "@mui/icons-material/DoubleArrow";
 import SpeedIcon from "@mui/icons-material/Speed";
 import FitScreenIcon from "@mui/icons-material/FitScreen";
 import Slider from "@mui/material/Slider";
+import Divider from "@mui/material/Divider";
 import LinearProgress from "@mui/material/LinearProgress";
 import PentagonIcon from "@mui/icons-material/Pentagon";
 import HexagonIcon from "@mui/icons-material/Hexagon";
 import DataObjectIcon from "@mui/icons-material/DataObject";
-import ExtensionIcon from "@mui/icons-material/Extension";
 import Stack from "@mui/material/Stack";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
@@ -42,6 +44,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
 import RadioGroup from "@mui/material/RadioGroup";
 import Radio from "@mui/material/Radio";
+import TextField from "@mui/material/TextField";
 
 declare module "@mui/material/styles" {
   interface CustomPalette {
@@ -100,8 +103,8 @@ interface HeaderProps {
     availableTolerances: number[],
     algorithms: string[]
   ) => void;
-  onUnite: () => void;
   onDownload: (selectedLayer: string) => void;
+  onEnableMetrics: () => void;
   fileUploaded: boolean;
   attributesEnabled: boolean;
   worldmapEnabled: boolean;
@@ -110,6 +113,9 @@ interface HeaderProps {
   selectedAlgorithm2: string;
   footerOpen: boolean;
   setFooterOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setNumberOfTolerances: React.Dispatch<React.SetStateAction<number>>;
+  tolerances: Tolerance[];
+  setTolerances: React.Dispatch<React.SetStateAction<Tolerance[]>>;
 }
 
 const VisuallyHiddenInput = styled("input")({
@@ -139,6 +145,7 @@ const options: Option[] = [
   { name: "Merőleges távolság", disabled: false },
   { name: "Sugárirányú távolság", disabled: false },
   { name: "N-edik pont", disabled: false },
+  { name: "Véletlenszerű", disabled: false },
   { name: "Zhao-Saalfeld", disabled: true },
   { name: "Lang", disabled: false },
   { name: "Opheim", disabled: true },
@@ -149,53 +156,6 @@ interface Tolerance {
   label: string;
 }
 
-const availableTolerances: Tolerance[] = [
-  {
-    value: 0,
-    label: "0",
-  },
-  {
-    value: 0.05,
-    label: "0.05",
-  },
-  {
-    value: 0.1,
-    label: "0.1",
-  },
-  {
-    value: 0.15,
-    label: "0.15",
-  },
-  {
-    value: 0.2,
-    label: "0.2",
-  },
-  {
-    value: 0.25,
-    label: "0.25",
-  },
-  {
-    value: 0.3,
-    label: "0.3",
-  },
-  {
-    value: 0.35,
-    label: "0.35",
-  },
-  {
-    value: 0.4,
-    label: "0.4",
-  },
-  {
-    value: 0.45,
-    label: "0.45",
-  },
-  {
-    value: 0.5,
-    label: "0.5",
-  },
-];
-
 const Header: React.FC<HeaderProps> = ({
   setFileUploaded,
   onDataUpload,
@@ -205,8 +165,8 @@ const Header: React.FC<HeaderProps> = ({
   onCenterMap,
   onSimplify,
   onToggleSimplification,
-  onUnite,
   onDownload,
+  onEnableMetrics,
   fileUploaded,
   attributesEnabled,
   worldmapEnabled,
@@ -215,6 +175,9 @@ const Header: React.FC<HeaderProps> = ({
   selectedAlgorithm2,
   footerOpen,
   setFooterOpen,
+  setNumberOfTolerances,
+  tolerances,
+  setTolerances,
 }: HeaderProps) => {
   const [errorSnackbarOpen, setErrorSnackbarOpen] = useState<boolean>(false);
   const [warningSnackbarOpen, setWarningSnackbarOpen] =
@@ -235,6 +198,10 @@ const Header: React.FC<HeaderProps> = ({
   const [numberOfSelectedAlgorithms, setNumberOfSelectedAlgorithms] =
     useState<number>(0);
 
+  const [endPoint, setEndPoint] = useState<number>(0.5);
+  const [step, setStep] = useState<number>(0.1);
+  const tolerancesRef = useRef(tolerances);
+
   const handleSimplificationDialogChange = (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -250,7 +217,14 @@ const Header: React.FC<HeaderProps> = ({
   const simplificationDialogWarning: boolean = selectedItems > 1;
 
   const simplificationDialogError: boolean =
-    selectedItems > 2 || selectedItems == 0;
+    selectedItems > 2 ||
+    selectedItems == 0 ||
+    endPoint <= 0 ||
+    endPoint > 2 ||
+    step < 0.02 ||
+    Number.isNaN(endPoint) ||
+    Number.isNaN(step) ||
+    endPoint <= step;
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -321,11 +295,13 @@ const Header: React.FC<HeaderProps> = ({
     if (simplificationEnabled) {
       onSimplify(-1);
       setNumberOfSelectedAlgorithms(0);
+      setEndPoint(0.5);
+      setStep(0.1);
       return;
     }
 
     onToggleSimplification(
-      availableTolerances.map((t) => t.value),
+      tolerancesRef.current.map((t) => t.value),
       algorithms
     );
   };
@@ -347,6 +323,9 @@ const Header: React.FC<HeaderProps> = ({
         return acc;
       }, {} as Record<string, boolean>)
     );
+
+    setEndPoint(0.5);
+    setStep(0.1);
   };
 
   const handleSimplificationDialogSubmit = () => {
@@ -361,6 +340,8 @@ const Header: React.FC<HeaderProps> = ({
     const selectedValues = Object.entries(algorithms)
       .filter(([_, value]) => value)
       .map(([key, _]) => key);
+
+    generateTolerances(endPoint, step);
 
     setNumberOfSelectedAlgorithms(selectedValues.length);
     handleSimplify(selectedValues);
@@ -387,26 +368,64 @@ const Header: React.FC<HeaderProps> = ({
     handleDownloadDialogClose();
   };
 
+  const handleEndPointChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value: number = parseFloat(event.target.value);
+    setEndPoint(value);
+  };
+
+  const handleStepChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value: number = parseFloat(event.target.value);
+    setStep(value);
+  };
+
+  const generateTolerances = (endPoint: number, step: number) => {
+    const newTolerances: Tolerance[] = [];
+
+    for (let i = 0; i <= endPoint; i += step) {
+      const tolerance: string = i.toFixed(2);
+
+      newTolerances.push({
+        value: Number(tolerance),
+        label: tolerance,
+      });
+    }
+
+    setTolerances(newTolerances);
+    setNumberOfTolerances(newTolerances.length);
+
+    tolerancesRef.current = newTolerances;
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <Box>
         <AppBar position="static">
           <Toolbar>
             {!fileUploaded && (
-              <Button
-                component="label"
-                variant="contained"
-                color="secondary"
-                tabIndex={-1}
-                startIcon={<CloudUploadIcon />}
+              <motion.div
+                initial={{ y: -100 }}
+                animate={{ y: 0 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 260,
+                  damping: 20,
+                }}
               >
-                ZIP FELTÖLTÉSE
-                <VisuallyHiddenInput
-                  type="file"
-                  onChange={handleFileChange}
-                  accept=".zip"
-                />
-              </Button>
+                <Button
+                  component="label"
+                  variant="contained"
+                  color="secondary"
+                  tabIndex={-1}
+                  startIcon={<CloudUploadIcon />}
+                >
+                  ZIP FELTÖLTÉSE
+                  <VisuallyHiddenInput
+                    type="file"
+                    onChange={handleFileChange}
+                    accept=".zip"
+                  />
+                </Button>
+              </motion.div>
             )}
 
             {fileUploaded && (
@@ -454,6 +473,7 @@ const Header: React.FC<HeaderProps> = ({
                     Attribútumok
                   </Button>
                 </Stack>
+
                 {loading ? (
                   <Box
                     sx={{
@@ -476,12 +496,8 @@ const Header: React.FC<HeaderProps> = ({
                           <Slider
                             aria-label="Tolerance"
                             min={0}
-                            marks={availableTolerances}
-                            max={
-                              availableTolerances[
-                                availableTolerances.length - 1
-                              ].value
-                            }
+                            marks={tolerances}
+                            max={tolerances[tolerances.length - 1].value}
                             step={null}
                             color="secondary"
                             onChange={handleSliderChange}
@@ -492,27 +508,21 @@ const Header: React.FC<HeaderProps> = ({
                     </Stack>
                   )
                 )}
+
                 <Stack
                   spacing={2}
                   direction="row"
-                  sx={{ width: "100%", justifyContent: "flex-end" }}
+                  sx={{
+                    width: "100%",
+                    justifyContent: "flex-end",
+                  }}
                 >
-                  <Button
-                    variant="contained"
-                    startIcon={<ExtensionIcon />}
-                    color="purple"
-                    sx={{ color: "white" }}
-                    onClick={onUnite}
-                    disabled={loading || !simplificationEnabled}
-                  >
-                    Egyesítés
-                  </Button>
                   <Button
                     variant="contained"
                     startIcon={<SpeedIcon />}
                     color="pink"
                     sx={{ color: "white" }}
-                    onClick={() => setFooterOpen(!footerOpen)}
+                    onClick={onEnableMetrics}
                     disabled={loading || !simplificationEnabled}
                   >
                     Metrikák
@@ -617,45 +627,74 @@ const Header: React.FC<HeaderProps> = ({
           Válassz <b>max. 2</b> algoritmust!
         </DialogTitle>
         <DialogContent>
-          <FormControl
-            required
-            error={simplificationDialogError}
-            component="fieldset"
-            sx={{ m: 3 }}
-            variant="standard"
-          >
-            <FormGroup>
-              {options.map((option) => (
-                <FormControlLabel
-                  key={option.name}
-                  control={
-                    <Checkbox
-                      checked={algorithms[option.name]}
-                      onChange={handleSimplificationDialogChange}
-                      name={option.name}
-                      disabled={option.disabled}
+          <Grid container spacing={1}>
+            <Grid size={8}>
+              <FormControl
+                required
+                error={simplificationDialogError}
+                component="fieldset"
+                sx={{ m: 3 }}
+                variant="standard"
+              >
+                <FormGroup>
+                  {options.map((option) => (
+                    <FormControlLabel
+                      key={option.name}
+                      control={
+                        <Checkbox
+                          checked={algorithms[option.name]}
+                          onChange={handleSimplificationDialogChange}
+                          name={option.name}
+                          disabled={option.disabled}
+                        />
+                      }
+                      label={option.name}
                     />
-                  }
-                  label={option.name}
+                  ))}
+                </FormGroup>
+              </FormControl>
+            </Grid>
+            <Divider orientation="vertical" variant="middle" flexItem />
+            <Grid sx={{ flex: 1 }} size={6} margin={1}>
+              <Stack spacing={3}>
+                <Typography variant="h5">További opciók</Typography>
+                <Divider orientation="horizontal" flexItem></Divider>
+                <TextField
+                  label="Kezdőpont"
+                  type="number"
+                  defaultValue={0}
+                  disabled
                 />
-              ))}
-            </FormGroup>
-          </FormControl>
-          {simplificationDialogWarning && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{
-                type: "spring",
-                stiffness: 260,
-                damping: 20,
-              }}
-            >
-              <Alert severity="warning">
-                Több algoritmus számolása időigényes lehet.
-              </Alert>
-            </motion.div>
-          )}
+                <TextField
+                  label="Végpont"
+                  type="number"
+                  value={endPoint}
+                  onChange={handleEndPointChange}
+                />
+                <TextField
+                  label="Lépték"
+                  type="number"
+                  value={step}
+                  onChange={handleStepChange}
+                />
+              </Stack>
+            </Grid>
+            {simplificationDialogWarning && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 260,
+                  damping: 20,
+                }}
+              >
+                <Alert severity="warning">
+                  Több algoritmus számolása időigényes lehet.
+                </Alert>
+              </motion.div>
+            )}
+          </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleSimplificationDialogClose} color="primary">

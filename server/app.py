@@ -1,4 +1,5 @@
 from simplification.utils import count_vertices
+from simplification.utils import calculate_positional_error
 from simplification.douglas import simplify_geometries_rdp
 from simplification.douglas_improved import simplify_geometries_rdp_improved
 from simplification.visvalingam import simplify_geometries_vw
@@ -7,6 +8,7 @@ from simplification.perpendicular_distance import simplify_geometries_pd
 from simplification.radial_distance import simplify_geometries_rd
 from simplification.nth_point import simplify_geometries_nth_point
 from simplification.lang import simplify_geometries_lang
+from simplification.random import simplify_geometries_random
 from flask import Flask, request, jsonify, send_file
 import geopandas as gpd
 from concurrent.futures import ThreadPoolExecutor
@@ -18,7 +20,6 @@ import tempfile
 import zipfile
 import json
 import math
-import topojson as tp
 import numpy as np
 
 app = Flask(__name__)
@@ -27,6 +28,7 @@ cors = CORS(app, origins="*")
 ZIP_FOLDER = "./samples"
 ANGLE_THRESHOLD = np.radians(60)
 DISTANCE_THRESHOLD = 10.0
+LOOKAHEAD = 4
 
 
 @app.route('/api/upload', methods=['POST'])
@@ -85,10 +87,7 @@ def simplify_shape():
 
         gdf = gpd.GeoDataFrame.from_features(geojson['features'])
 
-        original_point_count = count_vertices(gdf)
-
         simplified_geojsons = {algorithm: {} for algorithm in algorithms}
-        simplified_point_counts = {algorithm: {} for algorithm in algorithms}
 
         def simplify_task(algorithm, tolerance):
             simplified_gdf = gdf.copy()
@@ -109,9 +108,13 @@ def simplify_shape():
                 simplified_gdf = simplify_geometries_rd(gdf, tolerance)
             elif algorithm == "N-edik pont":
                 simplified_gdf = simplify_geometries_nth_point(gdf, math.ceil(tolerance * 10))
+            elif algorithm == "Lang":
+                simplified_gdf = simplify_geometries_lang(gdf, tolerance, LOOKAHEAD)
+            elif algorithm == "Véletlenszerű":
+                simplified_gdf = simplify_geometries_random(gdf, tolerance)
 
             geojson_data = simplified_gdf.to_json()
-            return algorithm, tolerance, json.loads(geojson_data), simplified_gdf
+            return algorithm, tolerance, json.loads(geojson_data)
 
         with ThreadPoolExecutor() as executor:
             tasks = [
@@ -121,38 +124,16 @@ def simplify_shape():
             ]
 
             for future in tasks:
-                algorithm, tolerance, geojson_data, simplified_gdf = future.result()
+                algorithm, tolerance, geojson_data = future.result()
                 simplified_geojsons[algorithm][tolerance] = geojson_data
-                simplified_point_counts[algorithm][tolerance] = count_vertices(simplified_gdf)
 
         end_time = time.time()
         elapsed_time = end_time - start_time
 
         return jsonify({
             "simplifiedData": simplified_geojsons,
-            "pointCounts": {
-                "original": original_point_count,
-                "simplified": simplified_point_counts
-            },
             "elapsedTime": elapsed_time
         })
-
-    except Exception as e:
-        return jsonify({"hiba": str(e)}), 400
-
-
-@app.route('/api/unite', methods=['POST'])
-def unite_shape():
-    try:
-        data = request.get_json()
-        geojson = data['geojson']
-
-        gdf = gpd.GeoDataFrame.from_features(geojson['features'])
-
-        topo = tp.Topology(gdf)
-        united_gdf = topo.toposimplify(1).to_gdf().to_json()
-
-        return jsonify(json.loads(united_gdf))
 
     except Exception as e:
         return jsonify({"hiba": str(e)}), 400
@@ -183,6 +164,42 @@ def download_shapefile():
 
     except Exception as e:
         return jsonify({"hiba": str(e)}), 400
+
+
+# @app.route('/api/metrics', methods=['POST'])
+# def enable_metrics():
+#     try:
+#         data = request.get_json()
+
+#         geojson = data['geojson']
+#         simplifiedData1 = data['simplifiedData1']
+#         simplifiedData2 = data['simplifiedData2']
+#         tolerances = data['tolerances']
+#         algorithms = data["algorithms"]
+
+#         gdf = gpd.GeoDataFrame.from_features(geojson['features'])
+#         original_point_count = count_vertices(gdf)
+
+#         simplified_point_counts = {algorithm: {} for algorithm in algorithms}
+#         positional_errors = {algorithm: {} for algorithm in algorithms}
+        
+#         for algorithm in algorithms:
+#             for tolerance in tolerances:
+                
+#         for simplifiedData in simplifiedData1:                
+#             simplified_point_counts[algorithm][tolerance] = count_vertices(simplifiedData)
+#             # positional_errors[algorithm][tolerance] = calculate_positional_error(gdf, simplified_gdf)
+
+#         return jsonify({
+#             "pointCounts": {
+#                 "original": original_point_count,
+#                 "simplified": simplified_point_counts
+#             },
+#             # "positionalErrors": positional_errors
+#         })
+
+#     except Exception as e:
+#         return jsonify({"hiba": str(e)}), 400
 
 
 @app.route('/api/load_country/<country_name>', methods=['GET'])

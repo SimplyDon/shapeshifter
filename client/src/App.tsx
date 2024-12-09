@@ -3,6 +3,9 @@ import { motion, Variants } from "framer-motion";
 import Grid from "@mui/material/Grid2";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
+import Snackbar, { SnackbarCloseReason } from "@mui/material/Snackbar";
+import { IconButton, Alert } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -24,7 +27,7 @@ import Footer from "./Footer";
 import Sample from "./Sample";
 import L, { LatLngBoundsExpression } from "leaflet";
 import { Feature, FeatureCollection } from "geojson";
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -48,6 +51,11 @@ type Country = {
   complexity: string;
   imageUrl: string;
 };
+
+interface Tolerance {
+  value: number;
+  label: string;
+}
 
 function shuffleArray(array: Country[]) {
   return array
@@ -89,7 +97,7 @@ const countries: Country[] = [
     name: "Egyesült Államok",
     label: "usa",
     continent: "Amerika",
-    complexity: "közepes",
+    complexity: "bonyolult",
     imageUrl: "./src/assets/usa.png",
   },
   {
@@ -123,9 +131,12 @@ export default function App() {
   const [bounds, setBounds] = useState<LatLngBoundsExpression | null>(null);
   const [worldMapEnabled, setWorldMapEnabled] = useState<boolean>(false);
   const [attributesEnabled, setAttributesEnabled] = useState<boolean>(false);
+  const [tolerances, setTolerances] = useState<Tolerance[]>([]);
   const [currentTolerance, setCurrentTolerance] = useState<number>(0);
+  const [numberOfTolerances, setNumberOfTolerances] = useState<number>(0);
   const [randomCountries, setRandomCountries] = useState<Country[]>(countries);
   const [infoDialogOpen, setInfoDialogOpen] = useState<boolean>(false);
+  const [errorSnackbarOpen, setErrorSnackbarOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedAlgorithm1, setSelectedAlgorithm1] = useState<string>("");
   const [selectedAlgorithm2, setSelectedAlgorithm2] = useState<string>("");
@@ -135,6 +146,10 @@ export default function App() {
     original: number;
     simplified: Record<string, Record<number, number>>;
   } | null>(null);
+  const [positionalErrors, setPositionalErrors] = useState<Record<
+    string,
+    Record<number, number>
+  > | null>(null);
 
   const handleDataUpload = (uploadedData: FeatureCollection) => {
     setWorldMapEnabled(false);
@@ -208,7 +223,8 @@ export default function App() {
       }
 
       setElapsedTime(res.data.elapsedTime);
-      setPointCounts(res.data.pointCounts);
+      // setPointCounts(res.data.pointCounts);
+      // setPositionalErrors(res.data.positionalErrors);
     } catch (err) {
       console.error("HIBA:", err);
     } finally {
@@ -228,7 +244,7 @@ export default function App() {
     setLoading(true);
 
     try {
-      const response = await axios.get(
+      const response: AxiosResponse = await axios.get(
         `http://localhost:5000/api/load_country/${countryLabel}`
       );
 
@@ -244,6 +260,7 @@ export default function App() {
       setBounds(geojsonBounds);
     } catch (error) {
       console.error("HIBA: ", error);
+      setErrorSnackbarOpen(true);
     } finally {
       setLoading(false);
     }
@@ -267,38 +284,6 @@ export default function App() {
     setInfoDialogOpen(false);
   };
 
-  const handleUnite = async () => {
-    setLoading(true);
-
-    try {
-      if (simplifiedData1) {
-        const res1 = await axios.post("http://localhost:5000/api/unite", {
-          geojson: simplifiedData1[currentTolerance],
-        });
-
-        setSimplifiedData1((prevState: Array<FeatureCollection> | null) => ({
-          ...(prevState || []),
-          [currentTolerance]: res1.data,
-        }));
-      }
-
-      if (simplifiedData2) {
-        const res2 = await axios.post("http://localhost:5000/api/unite", {
-          geojson: simplifiedData2[currentTolerance],
-        });
-
-        setSimplifiedData2((prevState: Array<FeatureCollection> | null) => ({
-          ...(prevState || []),
-          [currentTolerance]: res2.data,
-        }));
-      }
-    } catch (err) {
-      console.error("HIBA:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleDownload = async (selectedLayer: string) => {
     let layerToDownload;
 
@@ -311,7 +296,7 @@ export default function App() {
     }
 
     try {
-      const response = await axios.post(
+      const response: AxiosResponse = await axios.post(
         "http://localhost:5000/api/download_shapefile",
         layerToDownload,
         {
@@ -327,6 +312,40 @@ export default function App() {
       window.URL.revokeObjectURL(link.href);
     } catch (error) {
       console.error("HIBA:", error);
+    }
+  };
+
+  const enableMetrics = async () => {
+    let selectedAlgorithms: String[] = [];
+
+    if (selectedAlgorithm2) {
+      selectedAlgorithms = [
+        selectedAlgorithm1.slice(0, -3),
+        selectedAlgorithm2.slice(0, -3),
+      ]; // Remove color emoji
+    } else if (selectedAlgorithm1) {
+      selectedAlgorithms = [selectedAlgorithm1.slice(0, -3)]; // Remove color emoji
+    }
+
+    try {
+      setLoading(true);
+
+      const response: AxiosResponse = await axios.post(
+        "http://localhost:5000/api/metrics",
+        {
+          geojson: data,
+          simplifiedData1: simplifiedData1,
+          simplifiedData2: simplifiedData2,
+          tolerances: tolerances,
+          algorithms: selectedAlgorithms,
+        }
+      );
+
+      console.log(response.data.pointCounts);
+    } catch (error) {
+      console.error("HIBA:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -357,6 +376,17 @@ export default function App() {
     return null;
   }
 
+  const handleSnackbarClose = (
+    _event: React.SyntheticEvent | Event,
+    reason?: SnackbarCloseReason
+  ) => {
+    if (reason === "clickaway") {
+      return;
+    }
+
+    setErrorSnackbarOpen(false);
+  };
+
   return (
     <>
       <Header
@@ -368,8 +398,8 @@ export default function App() {
         onCenterMap={centerMap}
         onSimplify={handleSimplify}
         onToggleSimplification={toggleSimplification}
-        onUnite={handleUnite}
         onDownload={handleDownload}
+        onEnableMetrics={enableMetrics}
         fileUploaded={fileUploaded}
         attributesEnabled={attributesEnabled}
         worldmapEnabled={worldMapEnabled}
@@ -378,15 +408,20 @@ export default function App() {
         selectedAlgorithm2={selectedAlgorithm2}
         footerOpen={footerOpen}
         setFooterOpen={setFooterOpen}
+        setNumberOfTolerances={setNumberOfTolerances}
+        tolerances={tolerances}
+        setTolerances={setTolerances}
       />
 
       <Footer
         drawerOpen={footerOpen}
         elapsedTime={elapsedTime}
         pointCounts={pointCounts}
+        positional_errors={positionalErrors}
         currentTolerance={currentTolerance}
         selectedAlgorithm1={selectedAlgorithm1}
         selectedAlgorithm2={selectedAlgorithm2}
+        numberOfTolerances={numberOfTolerances}
       />
 
       {!data && !simplifiedData1 ? (
@@ -553,6 +588,29 @@ export default function App() {
           </Button>
         </DialogActions>
       </Dialog>
+      <Snackbar
+        open={errorSnackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity="error"
+          action={
+            <IconButton
+              size="small"
+              aria-label="close"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          }
+        >
+          Betöltés sikertelen!
+        </Alert>
+      </Snackbar>
     </>
   );
 }

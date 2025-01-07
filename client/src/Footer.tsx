@@ -4,6 +4,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
 import SpeedIcon from "@mui/icons-material/Speed";
+import MemoryIcon from "@mui/icons-material/Memory";
 import FunctionsIcon from "@mui/icons-material/Functions";
 import HubIcon from "@mui/icons-material/Hub";
 import SquareFootIcon from "@mui/icons-material/SquareFoot";
@@ -12,11 +13,14 @@ import LayersIcon from "@mui/icons-material/Layers";
 interface FooterProps {
   drawerOpen: boolean;
   elapsedTime: number;
+  currentMemoryUsage: number;
+  peakMemoryUsage: number;
   pointCounts: {
     original: number;
     simplified: Record<string, Record<number, number>>;
   } | null;
   positional_errors: Record<string, Record<number, number>> | null;
+  perimeter: number;
   currentTolerance: number;
   selectedAlgorithm1: string;
   selectedAlgorithm2: string;
@@ -26,8 +30,11 @@ interface FooterProps {
 const Footer: React.FC<FooterProps> = ({
   drawerOpen,
   elapsedTime,
+  currentMemoryUsage,
+  peakMemoryUsage,
   pointCounts,
   positional_errors,
+  perimeter,
   currentTolerance,
   selectedAlgorithm1,
   selectedAlgorithm2,
@@ -40,7 +47,6 @@ const Footer: React.FC<FooterProps> = ({
   let formattedText2: string = "";
   let pos_error1: number = 0;
   let pos_error2: number = 0;
-  // let numberOfTolerances: number = 0;
 
   if (pointCounts && positional_errors) {
     originalPointCount = pointCounts["original"];
@@ -62,9 +68,10 @@ const Footer: React.FC<FooterProps> = ({
       formattedText1 = `<span style="color: lime;">${originalPointCount}</span>
       / <span style="color: red;">${simplifiedPointCount1}</span>
       (<span style="color: red;">-${percentageDecrease}%</span>)`;
-      formattedText2 = `<span style="color: red;">${pos_error1.toFixed(
-        3
-      )}</span>`;
+      formattedText2 = `<span style="color: red;">${(
+        (pos_error1 / perimeter) *
+        100
+      ).toFixed(2)}%</span>`;
     }
 
     if (selectedAlgorithm2 !== "") {
@@ -94,9 +101,13 @@ const Footer: React.FC<FooterProps> = ({
       / <span style="color: white;">${simplifiedPointCount2}</span>
       (<span style="color: red;">-${percentageDecrease1}%</span>
       / <span style="color: white;">-${percentageDecrease2}%</span>)`;
-      formattedText2 = `<span style="color: red;">${pos_error1.toFixed(
-        3
-      )}</span> / <span style="color: white;">${pos_error2.toFixed(3)}</span>`;
+      formattedText2 = `<span style="color: red;">${(
+        (pos_error1 / perimeter) *
+        100
+      ).toFixed(2)}%</span> / <span style="color: white;">${(
+        (pos_error2 / perimeter) *
+        100
+      ).toFixed(2)}%</span>`;
     }
   }
 
@@ -129,22 +140,44 @@ const Footer: React.FC<FooterProps> = ({
           <Divider orientation="vertical" variant="middle" flexItem />
           <Stack spacing={1} alignItems="center">
             <Typography variant="h4">
-              <LayersIcon />
-              &nbsp;Rétegek száma
+              <MemoryIcon />
+              &nbsp;Átlagos / max tárigény
             </Typography>
             <Divider flexItem />
             <Typography
               variant="h5"
               sx={{ display: "flex", alignItems: "center" }}
             >
-              {numberOfTolerances}
+              {(currentMemoryUsage / 1024 / 1024 / numberOfTolerances).toFixed(
+                2
+              )}{" "}
+              (<FunctionsIcon />
+              {(currentMemoryUsage / 1024 / 1024).toFixed(2)}) MB /{" "}
+              {(peakMemoryUsage / 1024 / 1024 / numberOfTolerances).toFixed(2)}{" "}
+              (
+              <FunctionsIcon />
+              {(peakMemoryUsage / 1024 / 1024).toFixed(2)}) MB
+            </Typography>
+          </Stack>
+          <Divider orientation="vertical" variant="middle" flexItem />
+          <Stack spacing={1} alignItems="center">
+            <Typography variant="h4">
+              <LayersIcon />
+              &nbsp;Rétegek
+            </Typography>
+            <Divider flexItem />
+            <Typography
+              variant="h5"
+              sx={{ display: "flex", alignItems: "center" }}
+            >
+              {numberOfTolerances} darab
             </Typography>
           </Stack>
           <Divider orientation="vertical" variant="middle" flexItem />
           <Stack spacing={1} alignItems="center">
             <Typography variant="h4">
               <HubIcon />
-              &nbsp;Csúcspontok száma
+              &nbsp;Csúcspontok
             </Typography>
             <Divider flexItem />
             <Typography variant="h5">
@@ -161,15 +194,6 @@ const Footer: React.FC<FooterProps> = ({
             <Typography variant="h5">
               <div dangerouslySetInnerHTML={{ __html: formattedText2 }}></div>
             </Typography>
-          </Stack>
-          <Divider orientation="vertical" variant="middle" flexItem />
-          <Stack spacing={1} alignItems="center">
-            <Typography variant="h4">
-              <SquareFootIcon />
-              &nbsp;TBD
-            </Typography>
-            <Divider flexItem />
-            <Typography variant="h5">0%</Typography>
           </Stack>
         </Grid>
       </Drawer>

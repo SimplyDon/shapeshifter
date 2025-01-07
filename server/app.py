@@ -16,6 +16,7 @@ from flask_cors import CORS
 import os
 import io
 import time
+import tracemalloc
 import tempfile
 import zipfile
 import json
@@ -79,6 +80,7 @@ def upload_file():
 def simplify_shape():
     try:
         start_time = time.time()
+        tracemalloc.start()
 
         data = request.get_json()
         geojson = data['geojson']
@@ -130,9 +132,14 @@ def simplify_shape():
         end_time = time.time()
         elapsed_time = end_time - start_time
 
+        current, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+
         return jsonify({
             "simplifiedData": simplified_geojsons,
-            "elapsedTime": elapsed_time
+            "elapsedTime": elapsed_time,
+            "currentMemoryUsage": current,
+            "peakMemoryUsage": peak,
         })
 
     except Exception as e:
@@ -166,40 +173,44 @@ def download_shapefile():
         return jsonify({"hiba": str(e)}), 400
 
 
-# @app.route('/api/metrics', methods=['POST'])
-# def enable_metrics():
-#     try:
-#         data = request.get_json()
+@app.route('/api/metrics', methods=['POST'])
+def enable_metrics():
+    try:
+        data = request.get_json()
 
-#         geojson = data['geojson']
-#         simplifiedData1 = data['simplifiedData1']
-#         simplifiedData2 = data['simplifiedData2']
-#         tolerances = data['tolerances']
-#         algorithms = data["algorithms"]
+        geojson = data['geojson']
+        simplifiedData1 = data['simplifiedData1']
+        simplifiedData2 = data['simplifiedData2']
+        tolerances = data['tolerances']
+        algorithms = data["algorithms"]
 
-#         gdf = gpd.GeoDataFrame.from_features(geojson['features'])
-#         original_point_count = count_vertices(gdf)
+        gdf = gpd.GeoDataFrame.from_features(geojson['features'])
+        original_point_count = count_vertices(gdf)
 
-#         simplified_point_counts = {algorithm: {} for algorithm in algorithms}
-#         positional_errors = {algorithm: {} for algorithm in algorithms}
-        
-#         for algorithm in algorithms:
-#             for tolerance in tolerances:
-                
-#         for simplifiedData in simplifiedData1:                
-#             simplified_point_counts[algorithm][tolerance] = count_vertices(simplifiedData)
-#             # positional_errors[algorithm][tolerance] = calculate_positional_error(gdf, simplified_gdf)
+        simplified_point_counts = {algorithm: {} for algorithm in algorithms}
+        positional_errors = {algorithm: {} for algorithm in algorithms}
 
-#         return jsonify({
-#             "pointCounts": {
-#                 "original": original_point_count,
-#                 "simplified": simplified_point_counts
-#             },
-#             # "positionalErrors": positional_errors
-#         })
+        for algorithm in enumerate(algorithms):
+            for tolerance in tolerances:
+                if (algorithm[0] == 0):
+                    simplified_gdf = gpd.GeoDataFrame.from_features(simplifiedData1[str(tolerance["value"])])
+                else:
+                    simplified_gdf = gpd.GeoDataFrame.from_features(simplifiedData2[str(tolerance["value"])])
 
-#     except Exception as e:
-#         return jsonify({"hiba": str(e)}), 400
+                simplified_point_counts[algorithm[1]][str(tolerance["value"])] = count_vertices(simplified_gdf)
+                positional_errors[algorithm[1]][str(tolerance["value"])] = calculate_positional_error(gdf, simplified_gdf)
+
+        return jsonify({
+            "pointCounts": {
+                "original": original_point_count,
+                "simplified": simplified_point_counts
+            },
+            "positionalErrors": positional_errors,
+            "perimeter": sum(gdf.length)
+        })
+
+    except Exception as e:
+        return jsonify({"hiba": str(e)}), 400
 
 
 @app.route('/api/load_country/<country_name>', methods=['GET'])

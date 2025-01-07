@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import "./styles.scss";
 import { styled } from "@mui/material/styles";
 import Button from "@mui/material/Button";
+import LoadingButton from "@mui/lab/LoadingButton";
 import Grid from "@mui/material/Grid2";
 import Typography from "@mui/material/Typography";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
@@ -109,10 +110,9 @@ interface HeaderProps {
   attributesEnabled: boolean;
   worldmapEnabled: boolean;
   loading: boolean;
+  metricsLoading: boolean;
   selectedAlgorithm1: string;
   selectedAlgorithm2: string;
-  footerOpen: boolean;
-  setFooterOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setNumberOfTolerances: React.Dispatch<React.SetStateAction<number>>;
   tolerances: Tolerance[];
   setTolerances: React.Dispatch<React.SetStateAction<Tolerance[]>>;
@@ -146,9 +146,7 @@ const options: Option[] = [
   { name: "Sugárirányú távolság", disabled: false },
   { name: "N-edik pont", disabled: false },
   { name: "Véletlenszerű", disabled: false },
-  { name: "Zhao-Saalfeld", disabled: true },
   { name: "Lang", disabled: false },
-  { name: "Opheim", disabled: true },
 ];
 
 interface Tolerance {
@@ -171,10 +169,9 @@ const Header: React.FC<HeaderProps> = ({
   attributesEnabled,
   worldmapEnabled,
   loading,
+  metricsLoading,
   selectedAlgorithm1,
   selectedAlgorithm2,
-  footerOpen,
-  setFooterOpen,
   setNumberOfTolerances,
   tolerances,
   setTolerances,
@@ -224,7 +221,7 @@ const Header: React.FC<HeaderProps> = ({
     step < 0.02 ||
     Number.isNaN(endPoint) ||
     Number.isNaN(step) ||
-    endPoint <= step;
+    endPoint < step;
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -429,7 +426,18 @@ const Header: React.FC<HeaderProps> = ({
             )}
 
             {fileUploaded && (
-              <Stack direction="row" sx={{ width: "100%" }}>
+              <Stack
+                direction="row"
+                sx={{ width: "100%" }}
+                component={motion.div}
+                initial={{ y: -100 }}
+                animate={{ y: 0 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 260,
+                  damping: 20,
+                }}
+              >
                 <Stack
                   spacing={2}
                   direction="row"
@@ -441,7 +449,7 @@ const Header: React.FC<HeaderProps> = ({
                     color="success"
                     sx={{ color: "white" }}
                     onClick={handleDownloadDialogOpen}
-                    disabled={loading}
+                    disabled={loading || metricsLoading}
                   >
                     Letöltés
                   </Button>
@@ -517,22 +525,24 @@ const Header: React.FC<HeaderProps> = ({
                     justifyContent: "flex-end",
                   }}
                 >
-                  <Button
+                  <LoadingButton
                     variant="contained"
                     startIcon={<SpeedIcon />}
                     color="pink"
                     sx={{ color: "white" }}
                     onClick={onEnableMetrics}
+                    loading={metricsLoading}
                     disabled={loading || !simplificationEnabled}
+                    loadingPosition="start"
                   >
                     Metrikák
-                  </Button>
+                  </LoadingButton>
                   <Button
                     variant="contained"
                     startIcon={<PolylineIcon />}
                     color={simplificationEnabled ? "yellow" : "warning"}
                     onClick={handleSimplificationDialog}
-                    disabled={loading}
+                    disabled={loading || metricsLoading}
                   >
                     {simplificationEnabled
                       ? `Egyszerűsítés (${numberOfSelectedAlgorithms} db)`
@@ -543,7 +553,7 @@ const Header: React.FC<HeaderProps> = ({
                     startIcon={<DeleteIcon />}
                     color="error"
                     onClick={handleDeleteDialogOpen}
-                    disabled={loading}
+                    disabled={loading || metricsLoading}
                   >
                     Törlés
                   </Button>
@@ -670,12 +680,14 @@ const Header: React.FC<HeaderProps> = ({
                   type="number"
                   value={endPoint}
                   onChange={handleEndPointChange}
+                  inputProps={{ step: ".1" }}
                 />
                 <TextField
                   label="Lépték"
                   type="number"
                   value={step}
                   onChange={handleStepChange}
+                  inputProps={{ step: ".1" }}
                 />
               </Stack>
             </Grid>

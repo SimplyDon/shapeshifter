@@ -138,10 +138,14 @@ export default function App() {
   const [infoDialogOpen, setInfoDialogOpen] = useState<boolean>(false);
   const [errorSnackbarOpen, setErrorSnackbarOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [metricsLoading, setMetricsLoading] = useState<boolean>(false);
   const [selectedAlgorithm1, setSelectedAlgorithm1] = useState<string>("");
   const [selectedAlgorithm2, setSelectedAlgorithm2] = useState<string>("");
   const [footerOpen, setFooterOpen] = useState<boolean>(false);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [currentMemoryUsage, setCurrentMemoryUsage] = useState<number>(0);
+  const [peakMemoryUsage, setPeakMemoryUsage] = useState<number>(0);
+  const [perimeter, setPerimeter] = useState<number>(0);
   const [pointCounts, setPointCounts] = useState<{
     original: number;
     simplified: Record<string, Record<number, number>>;
@@ -177,6 +181,9 @@ export default function App() {
     setBounds(null);
     setCurrentTolerance(0);
     setFooterOpen(false);
+    setPointCounts(null);
+    setPositionalErrors(null);
+    setPerimeter(0);
   };
 
   const toggleWorldMap = () => {
@@ -196,6 +203,12 @@ export default function App() {
       setSelectedAlgorithm1("");
       setSelectedAlgorithm2("");
       setFooterOpen(false);
+      setElapsedTime(0);
+      setCurrentMemoryUsage(0);
+      setPeakMemoryUsage(0);
+      setPointCounts(null);
+      setPositionalErrors(null);
+      setPerimeter(0);
       return;
     }
 
@@ -223,8 +236,8 @@ export default function App() {
       }
 
       setElapsedTime(res.data.elapsedTime);
-      // setPointCounts(res.data.pointCounts);
-      // setPositionalErrors(res.data.positionalErrors);
+      setCurrentMemoryUsage(res.data.currentMemoryUsage);
+      setPeakMemoryUsage(res.data.peakMemoryUsage);
     } catch (err) {
       console.error("HIBA:", err);
     } finally {
@@ -236,7 +249,6 @@ export default function App() {
       }
 
       setLoading(false);
-      setFooterOpen(true);
     }
   };
 
@@ -327,8 +339,18 @@ export default function App() {
       selectedAlgorithms = [selectedAlgorithm1.slice(0, -3)]; // Remove color emoji
     }
 
+    if (pointCounts) {
+      if (footerOpen) {
+        setFooterOpen(false);
+        return;
+      } else {
+        setFooterOpen(true);
+        return;
+      }
+    }
+
     try {
-      setLoading(true);
+      setMetricsLoading(true);
 
       const response: AxiosResponse = await axios.post(
         "http://localhost:5000/api/metrics",
@@ -341,11 +363,14 @@ export default function App() {
         }
       );
 
-      console.log(response.data.pointCounts);
+      setPointCounts(response.data.pointCounts);
+      setPositionalErrors(response.data.positionalErrors);
+      setPerimeter(response.data.perimeter);
+      setFooterOpen(true);
     } catch (error) {
       console.error("HIBA:", error);
     } finally {
-      setLoading(false);
+      setMetricsLoading(false);
     }
   };
 
@@ -404,10 +429,9 @@ export default function App() {
         attributesEnabled={attributesEnabled}
         worldmapEnabled={worldMapEnabled}
         loading={loading}
+        metricsLoading={metricsLoading}
         selectedAlgorithm1={selectedAlgorithm1}
         selectedAlgorithm2={selectedAlgorithm2}
-        footerOpen={footerOpen}
-        setFooterOpen={setFooterOpen}
         setNumberOfTolerances={setNumberOfTolerances}
         tolerances={tolerances}
         setTolerances={setTolerances}
@@ -416,8 +440,11 @@ export default function App() {
       <Footer
         drawerOpen={footerOpen}
         elapsedTime={elapsedTime}
+        currentMemoryUsage={currentMemoryUsage}
+        peakMemoryUsage={peakMemoryUsage}
         pointCounts={pointCounts}
         positional_errors={positionalErrors}
+        perimeter={perimeter}
         currentTolerance={currentTolerance}
         selectedAlgorithm1={selectedAlgorithm1}
         selectedAlgorithm2={selectedAlgorithm2}

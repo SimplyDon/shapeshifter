@@ -4,14 +4,15 @@ An online map editing tool with different built-in simplification algorithms.
 
 ## About the project
 
-Made for the bachelor computer scientist thesis titled **"Implementing cartographic generalization tools using Python library geopandas"** at the **University of Szeged** in the semesters 2024/25/1 and 2024/25/2.
+Made for the bachelor computer scientist thesis titled **"Generalization of linear map objects"** at the **University of Szeged** in the semesters 2024/25/1 and 2024/25/2.
 
 ## Features
 
-- Import ZIP file containing all neccessary components to visualize it
+- Import ZIP file containing all neccessary components to visualize it or use built-in presets
 - Draggable map
 - Toggle OpenStreetMap background
 - Simplify shapes using different simplification algorithms (i.e. Douglas-Peucker)
+- Analyze using different metrics (i.e. time/space complexity)
 
 > Note: The aim of this work was to implement the algorithms using basic operations, excluding built-in functions that do the same job.
 

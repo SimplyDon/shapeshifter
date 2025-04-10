@@ -247,8 +247,8 @@ const Header: React.FC<HeaderProps> = ({
       if (res.data["warning"]) {
         setWarningSnackbarOpen(true);
       }
-    } catch (err) {
-      console.error("HIBA:", err);
+    } catch (error) {
+      console.error("HIBA:", error);
       setErrorSnackbarOpen(true);
       setFileUploaded(false);
     }

@@ -238,8 +238,8 @@ export default function App() {
       setElapsedTime(res.data.elapsedTime);
       setCurrentMemoryUsage(res.data.currentMemoryUsage);
       setPeakMemoryUsage(res.data.peakMemoryUsage);
-    } catch (err) {
-      console.error("HIBA:", err);
+    } catch (error) {
+      console.error("HIBA:", error);
     } finally {
       if (algorithms.length === 1) {
         setSelectedAlgorithm1(algorithms[0] + " 🟥");
@@ -340,13 +340,8 @@ export default function App() {
     }
 
     if (pointCounts) {
-      if (footerOpen) {
-        setFooterOpen(false);
-        return;
-      } else {
-        setFooterOpen(true);
-        return;
-      }
+      setFooterOpen(!footerOpen);
+      return;
     }
 
     try {

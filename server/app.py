@@ -94,26 +94,20 @@ def simplify_shape():
         def simplify_task(algorithm, tolerance):
             simplified_gdf = gdf.copy()
 
-            if algorithm == "Ramer-Douglas-Peucker (implementált)":
-                simplified_gdf = simplify_geometries_rdp(gdf, tolerance)
-            elif algorithm == "Ramer-Douglas-Peucker (beépített)":
-                simplified_gdf = gdf.simplify(tolerance=tolerance)
-            elif algorithm == "Ramer-Douglas-Peucker (továbbfejlesztett)":
-                simplified_gdf = simplify_geometries_rdp_improved(gdf, ANGLE_THRESHOLD, DISTANCE_THRESHOLD, tolerance=tolerance)
-            elif algorithm == "Visvaligam-Whyatt":
-                simplified_gdf = simplify_geometries_vw(gdf, tolerance / 10)
-            elif algorithm == "Reumann-Witkam":
-                simplified_gdf = simplify_geometries_rw(gdf, tolerance)
-            elif algorithm == "Merőleges távolság":
-                simplified_gdf = simplify_geometries_pd(gdf, tolerance / 100)
-            elif algorithm == "Sugárirányú távolság":
-                simplified_gdf = simplify_geometries_rd(gdf, tolerance)
-            elif algorithm == "N-edik pont":
-                simplified_gdf = simplify_geometries_nth_point(gdf, math.ceil(tolerance * 10))
-            elif algorithm == "Lang":
-                simplified_gdf = simplify_geometries_lang(gdf, tolerance, LOOKAHEAD)
-            elif algorithm == "Véletlenszerű":
-                simplified_gdf = simplify_geometries_random(gdf, tolerance)
+            simplify_funcs = {
+                "Ramer-Douglas-Peucker (implementált)": lambda: simplify_geometries_rdp(gdf, tolerance),
+                "Ramer-Douglas-Peucker (beépített)": lambda: gdf.simplify(tolerance=tolerance),
+                "Ramer-Douglas-Peucker (továbbfejlesztett)": lambda: simplify_geometries_rdp_improved(gdf, ANGLE_THRESHOLD, DISTANCE_THRESHOLD, tolerance=tolerance),
+                "Visvaligam-Whyatt": lambda: simplify_geometries_vw(gdf, tolerance / 10),
+                "Reumann-Witkam": lambda: simplify_geometries_rw(gdf, tolerance),
+                "Merőleges távolság": lambda: simplify_geometries_pd(gdf, tolerance / 100),
+                "Sugárirányú távolság": lambda: simplify_geometries_rd(gdf, tolerance),
+                "N-edik pont": lambda: simplify_geometries_nth_point(gdf, math.ceil(tolerance * 10)),
+                "Lang": lambda: simplify_geometries_lang(gdf, tolerance, LOOKAHEAD),
+                "Véletlenszerű": lambda: simplify_geometries_random(gdf, tolerance),
+            }
+
+            simplified_gdf = simplify_funcs[algorithm]()
 
             geojson_data = simplified_gdf.to_json()
             return algorithm, tolerance, json.loads(geojson_data)

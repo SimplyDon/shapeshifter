@@ -4,7 +4,7 @@ An online map editing tool with different built-in simplification algorithms.
 
 ## About the project
 
-Made for the bachelor computer scientist thesis titled **"Generalization of linear map objects"** at the **University of Szeged** in the semesters 2024/25/1 and 2024/25/2.
+Made for the bachelor computer scientist thesis titled **"Generalization of Linear Map Objects"** at the **University of Szeged** in the semesters 2024/25/1 and 2024/25/2.
 
 ## Features
 

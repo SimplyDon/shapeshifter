@@ -1,10 +1,13 @@
-from shapely.geometry import LineString, Polygon, MultiPolygon
+"""Improved Douglas-Peucker algorithm"""
 from simplification.douglas import douglas_peucker
 from simplification.utils import calculate_angle
 import numpy as np
 
+ANGLE_THRESHOLD = np.radians(60)
+DISTANCE_THRESHOLD = 10.0
 
 def select_segment_points(coords, angle_threshold, distance_threshold):
+    """Select segment points"""
     # Always include the first point
     segment_points = [coords[0]]
 
@@ -20,8 +23,9 @@ def select_segment_points(coords, angle_threshold, distance_threshold):
     return segment_points
 
 
-def improved_douglas_peucker(coords, tolerance, angle_threshold, distance_threshold):
-    segment_points = select_segment_points(coords, angle_threshold, distance_threshold)
+def improved_douglas_peucker(coords, tolerance):
+    """Improved Douglas-Peucker algorithm"""
+    segment_points = select_segment_points(coords, ANGLE_THRESHOLD, DISTANCE_THRESHOLD)
 
     simplified_coords = []
 
@@ -40,60 +44,3 @@ def improved_douglas_peucker(coords, tolerance, angle_threshold, distance_thresh
     simplified_coords.append(segment_points[-1])
 
     return simplified_coords
-
-
-def simplify_geometries_rdp_improved(gdf, angle_threshold, distance_threshold, tolerance):
-    simplified_geometries = []
-
-    for geom in gdf.geometry:
-        if geom.geom_type == 'LineString':
-            coords = list(geom.coords)
-            simplified_coords = improved_douglas_peucker(coords, angle_threshold, distance_threshold, tolerance)
-            simplified_geometries.append(LineString(simplified_coords))
-
-        elif geom.geom_type == 'Polygon':
-            exterior_coords = list(geom.exterior.coords)
-            simplified_exterior = improved_douglas_peucker(exterior_coords, angle_threshold, distance_threshold, tolerance)
-
-            if len(simplified_exterior) < 4:
-                simplified_geometries.append(None)
-                continue
-
-            simplified_interiors = []
-            for interior in geom.interiors:
-                interior_coords = list(interior.coords)
-                simplified_interior = improved_douglas_peucker(interior_coords, angle_threshold, distance_threshold, tolerance)
-                if len(simplified_interior) > 2:
-                    simplified_interiors.append(LineString(simplified_interior))
-
-            simplified_geometries.append(Polygon(simplified_exterior, simplified_interiors))
-
-        elif geom.geom_type == 'MultiPolygon':
-            simplified_polys = []
-            for polygon in geom.geoms:
-                exterior_coords = list(polygon.exterior.coords)
-                simplified_exterior = improved_douglas_peucker(exterior_coords, angle_threshold, distance_threshold, tolerance)
-
-                if len(simplified_exterior) < 4:
-                    continue
-
-                simplified_interiors = []
-                for interior in polygon.interiors:
-                    interior_coords = list(interior.coords)
-                    simplified_interior = improved_douglas_peucker(interior_coords, angle_threshold, distance_threshold, tolerance)
-                    if len(simplified_interior) > 2:
-                        simplified_interiors.append(LineString(simplified_interior))
-
-                simplified_polys.append(Polygon(simplified_exterior, simplified_interiors))
-
-            if simplified_polys:
-                simplified_geometries.append(MultiPolygon(simplified_polys))
-            else:
-                simplified_geometries.append(None)
-
-        else:
-            simplified_geometries.append(geom)
-
-    gdf_simplified = gdf.copy()
-    gdf_simplified['geometry'] = simplified_geometries
-    return gdf_simplified

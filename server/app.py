@@ -1,18 +1,4 @@
-from simplification.utils import count_vertices
-from simplification.utils import calculate_positional_error
-from simplification.douglas import simplify_geometries_rdp
-from simplification.douglas_improved import simplify_geometries_rdp_improved
-from simplification.visvalingam import simplify_geometries_vw
-from simplification.reumann import simplify_geometries_rw
-from simplification.perpendicular_distance import simplify_geometries_pd
-from simplification.radial_distance import simplify_geometries_rd
-from simplification.nth_point import simplify_geometries_nth_point
-from simplification.lang import simplify_geometries_lang
-from simplification.random import simplify_geometries_random
-from flask import Flask, request, jsonify, send_file
-import geopandas as gpd
-from concurrent.futures import ThreadPoolExecutor
-from flask_cors import CORS
+"""Backend endpoints"""
 import os
 import io
 import time
@@ -21,19 +7,31 @@ import tempfile
 import zipfile
 import json
 import math
-import numpy as np
+from concurrent.futures import ThreadPoolExecutor
+import geopandas as gpd
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
+from simplification.utils import count_vertices, calculate_positional_error, traverse_geometries
+from simplification.douglas import douglas_peucker
+from simplification.douglas_improved import improved_douglas_peucker
+from simplification.visvalingam import visvalingam_whyatt
+from simplification.reumann import reumann_witkam
+from simplification.perpendicular_distance import pd
+from simplification.radial_distance import radial_distance
+from simplification.nth_point import nth_point
+from simplification.lang import lang
+from simplification.random import simplify_random
+
 
 app = Flask(__name__)
 cors = CORS(app, origins="*")
 
 ZIP_FOLDER = "./samples"
-ANGLE_THRESHOLD = np.radians(60)
-DISTANCE_THRESHOLD = 10.0
-LOOKAHEAD = 4
 
 
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
+    """Endpoints for uploading .zip file"""
     try:
         file = request.files['file']
 
@@ -78,6 +76,7 @@ def upload_file():
 
 @app.route('/api/simplify', methods=['POST'])
 def simplify_shape():
+    """Endpoint for running the simplification algorithm(s)"""
     try:
         start_time = time.time()
         tracemalloc.start()
@@ -95,16 +94,16 @@ def simplify_shape():
             simplified_gdf = gdf.copy()
 
             simplify_funcs = {
-                "Ramer-Douglas-Peucker (implementált)": lambda: simplify_geometries_rdp(gdf, tolerance),
-                "Ramer-Douglas-Peucker (beépített)": lambda: gdf.simplify(tolerance=tolerance),
-                "Ramer-Douglas-Peucker (továbbfejlesztett)": lambda: simplify_geometries_rdp_improved(gdf, ANGLE_THRESHOLD, DISTANCE_THRESHOLD, tolerance=tolerance),
-                "Visvaligam-Whyatt": lambda: simplify_geometries_vw(gdf, tolerance / 10),
-                "Reumann-Witkam": lambda: simplify_geometries_rw(gdf, tolerance),
-                "Merőleges távolság": lambda: simplify_geometries_pd(gdf, tolerance / 100),
-                "Sugárirányú távolság": lambda: simplify_geometries_rd(gdf, tolerance),
-                "N-edik pont": lambda: simplify_geometries_nth_point(gdf, math.ceil(tolerance * 10)),
-                "Lang": lambda: simplify_geometries_lang(gdf, tolerance, LOOKAHEAD),
-                "Véletlenszerű": lambda: simplify_geometries_random(gdf, tolerance),
+                "Ramer-Douglas-Peucker (implementált)": lambda: traverse_geometries(gdf, tolerance, douglas_peucker),
+                "Ramer-Douglas-Peucker (beépített)": lambda: gdf.simplify(tolerance),
+                "Ramer-Douglas-Peucker (továbbfejlesztett)": lambda: traverse_geometries(gdf, tolerance, improved_douglas_peucker),
+                "Visvaligam-Whyatt": lambda: traverse_geometries(gdf, tolerance / 10, visvalingam_whyatt),
+                "Reumann-Witkam": lambda: traverse_geometries(gdf, tolerance, reumann_witkam),
+                "Merőleges távolság": lambda: traverse_geometries(gdf, tolerance / 100, pd),
+                "Sugárirányú távolság": lambda: traverse_geometries(gdf, tolerance, radial_distance),
+                "N-edik pont": lambda: traverse_geometries(gdf, math.ceil(tolerance * 10), nth_point),
+                "Lang": lambda: traverse_geometries(gdf, tolerance, lang),
+                "Véletlenszerű": lambda: traverse_geometries(gdf, tolerance, simplify_random)
             }
 
             simplified_gdf = simplify_funcs[algorithm]()
@@ -142,6 +141,7 @@ def simplify_shape():
 
 @app.route('/api/download_shapefile', methods=['POST'])
 def download_shapefile():
+    """Endpoint for downloading the layer"""
     try:
         data = request.get_json()
 
@@ -169,12 +169,13 @@ def download_shapefile():
 
 @app.route('/api/metrics', methods=['POST'])
 def enable_metrics():
+    """Endpoint for enabling metrics"""
     try:
         data = request.get_json()
 
         geojson = data['geojson']
-        simplifiedData1 = data['simplifiedData1']
-        simplifiedData2 = data['simplifiedData2']
+        simplified_data1 = data['simplifiedData1']
+        simplified_data2 = data['simplifiedData2']
         tolerances = data['tolerances']
         algorithms = data["algorithms"]
 
@@ -186,10 +187,10 @@ def enable_metrics():
 
         for algorithm in enumerate(algorithms):
             for tolerance in tolerances:
-                if (algorithm[0] == 0):
-                    simplified_gdf = gpd.GeoDataFrame.from_features(simplifiedData1[str(tolerance["value"])])
+                if algorithm[0] == 0:
+                    simplified_gdf = gpd.GeoDataFrame.from_features(simplified_data1[str(tolerance["value"])])
                 else:
-                    simplified_gdf = gpd.GeoDataFrame.from_features(simplifiedData2[str(tolerance["value"])])
+                    simplified_gdf = gpd.GeoDataFrame.from_features(simplified_data2[str(tolerance["value"])])
 
                 simplified_point_counts[algorithm[1]][str(tolerance["value"])] = count_vertices(simplified_gdf)
                 positional_errors[algorithm[1]][str(tolerance["value"])] = calculate_positional_error(gdf, simplified_gdf)
@@ -209,6 +210,7 @@ def enable_metrics():
 
 @app.route('/api/load_country/<country_name>', methods=['GET'])
 def load_country_shapefile(country_name):
+    """Endpoint for loading country presets"""
     try:
         zip_path = os.path.join(ZIP_FOLDER, f"{country_name}.zip")
 

@@ -1,9 +1,11 @@
+"""Side calculations"""
 from shapely.geometry import Polygon, MultiPolygon, LineString, MultiLineString, Point, MultiPoint, GeometryCollection
 import geopandas as gpd
 import numpy as np
 
 
 def perpendicular_distance(point, start, end) -> float:
+    """Calculate perpendicular distance"""
     if np.all(start == end):
         return np.linalg.norm(point - start)
 
@@ -24,12 +26,14 @@ def perpendicular_distance(point, start, end) -> float:
 
 
 def triangle_area(p1, p2, p3) -> float:
-    return abs((p1[0] * (p2[1] - p3[1]) + 
-                p2[0] * (p3[1] - p1[1]) + 
+    """Calculate triangle area"""
+    return abs((p1[0] * (p2[1] - p3[1]) +
+                p2[0] * (p3[1] - p1[1]) +
                 p3[0] * (p1[1] - p2[1])) / 2.0)
 
 
 def calculate_angle(p1, p2, p3) -> np.ndarray:
+    """Calculate angle"""
     v1 = np.array(p1) - np.array(p2)
     v2 = np.array(p3) - np.array(p2)
     dot_product = np.dot(v1, v2)
@@ -44,11 +48,70 @@ def calculate_angle(p1, p2, p3) -> np.ndarray:
     return np.arccos(np.clip(cos_angle, -1.0, 1.0))
 
 
+def traverse_geometries(gdf, tolerance, algorithm):
+    """Traverse geometries in GeoDataFrame"""
+    simplified_geometries = []
+
+    for geom in gdf.geometry:
+        if geom.geom_type == 'LineString':
+            coords = list(geom.coords)
+            simplified_coords = algorithm(coords, tolerance)
+            simplified_geometries.append(LineString(simplified_coords))
+
+        elif geom.geom_type == 'Polygon':
+            exterior_coords = list(geom.exterior.coords)
+            simplified_exterior = algorithm(exterior_coords, tolerance)
+
+            if len(simplified_exterior) < 4:
+                simplified_geometries.append(None)
+                continue
+
+            simplified_interiors = []
+            for interior in geom.interiors:
+                interior_coords = list(interior.coords)
+                simplified_interior = algorithm(interior_coords, tolerance)
+                if len(simplified_interior) > 2:
+                    simplified_interiors.append(LineString(simplified_interior))
+
+            simplified_geometries.append(Polygon(simplified_exterior, simplified_interiors))
+
+        elif geom.geom_type == 'MultiPolygon':
+            simplified_polys = []
+            for polygon in geom.geoms:
+                exterior_coords = list(polygon.exterior.coords)
+                simplified_exterior = algorithm(exterior_coords, tolerance)
+
+                if len(simplified_exterior) < 4:
+                    continue
+
+                simplified_interiors = []
+                for interior in polygon.interiors:
+                    interior_coords = list(interior.coords)
+                    simplified_interior = algorithm(interior_coords, tolerance)
+                    if len(simplified_interior) > 2:
+                        simplified_interiors.append(LineString(simplified_interior))
+
+                simplified_polys.append(Polygon(simplified_exterior, simplified_interiors))
+
+            if simplified_polys:
+                simplified_geometries.append(MultiPolygon(simplified_polys))
+            else:
+                simplified_geometries.append(None)
+
+        else:
+            simplified_geometries.append(geom)
+
+    gdf_simplified = gdf.copy()
+    gdf_simplified['geometry'] = simplified_geometries
+    return gdf_simplified
+
+
 def count_vertices(gdf: gpd.GeoDataFrame) -> int:
+    """Count no. of vertices in GeoDataFrame"""
     total_vertices = 0
 
     for geom in gdf.geometry:
-        if (geom is not None):
+        if geom is not None:
             if geom.is_empty:
                 continue
 
@@ -83,6 +146,7 @@ def count_vertices(gdf: gpd.GeoDataFrame) -> int:
 
 
 def positional_error(original_points, simplified_points) -> float:
+    """Calculate positional error between two polylines"""
     total_error = 0.0
     simplified_index = 0
 
@@ -104,6 +168,7 @@ def positional_error(original_points, simplified_points) -> float:
 
 
 def calculate_positional_error(gdf, simplified_gdf) -> float:
+    """Calculate positional error in GeoDataFrame"""
     total_error = 0.0
 
     for geom, simplified_geom in zip(gdf.geometry, simplified_gdf.geometry):
@@ -114,14 +179,14 @@ def calculate_positional_error(gdf, simplified_gdf) -> float:
                 total_error += positional_error(coords, simplified_coords)
 
             elif geom.geom_type == 'Polygon':
-                    exterior_coords = list(geom.exterior.coords)
-                    simplified_exterior_coords = list(simplified_geom.exterior.coords)
-                    total_error += positional_error(exterior_coords, simplified_exterior_coords)
+                exterior_coords = list(geom.exterior.coords)
+                simplified_exterior_coords = list(simplified_geom.exterior.coords)
+                total_error += positional_error(exterior_coords, simplified_exterior_coords)
 
-                    for interior, simplified_interior in zip(geom.interiors, simplified_geom.interiors):
-                        interior_coords = list(interior.coords)
-                        simplified_interior_coords = list(simplified_interior.coords)
-                        total_error += positional_error(interior_coords, simplified_interior_coords)
+                for interior, simplified_interior in zip(geom.interiors, simplified_geom.interiors):
+                    interior_coords = list(interior.coords)
+                    simplified_interior_coords = list(simplified_interior.coords)
+                    total_error += positional_error(interior_coords, simplified_interior_coords)
 
             elif geom.geom_type == 'MultiPolygon':
                 for polygon, simplified_polygon in zip(geom.geoms, simplified_geom.geoms):
